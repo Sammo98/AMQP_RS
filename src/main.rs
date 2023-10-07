@@ -2,16 +2,16 @@ use std::io::prelude::*;
 use std::net::TcpStream;
 
 mod common;
+mod communication;
 mod constants;
-mod decode;
+
+use crate::communication::{decode, encode, Value};
 
 use common::ClassType;
 use common::ConnectionClassMethodType;
 use common::FrameType;
 use common::Header;
-use constants::HEADER_SIZE;
-use constants::PROTOCOL_HEADER;
-use decode::FrameDecoder;
+use constants::{size, PROTOCOL_HEADER};
 
 #[derive(Debug)]
 struct Client {
@@ -22,24 +22,44 @@ struct Client {
 
 impl Client {
     fn connect(&mut self) {
-        self.stream.write(&PROTOCOL_HEADER).unwrap();
+        // self.stream.write(&PROTOCOL_HEADER).unwrap();
 
-        let mut buffer = [0; 1024];
-        self.stream.read(&mut buffer).unwrap();
+        // let mut buffer = [0; 1024];
+        // self.stream.read(&mut buffer).unwrap();
 
-        let mut decoder = FrameDecoder::new(&buffer, 0);
+        // let mut decoder = FrameDecoder::new(&buffer, 0);
 
-        // These steps happen in a specific and defined order as the decoder keeps track off the buffer offset state
-        let header = decoder.decode_header();
-        let class_type = decoder.decode_class_type();
-        let method_type = decoder.decode_method_type();
+        // // These steps happen in a specific and defined order as the decoder keeps track off the buffer offset state
+        // let header = decoder.take_header();
+        // let class_type = decoder.take_class_type();
+        // let method_type = decoder.take_method_type();
 
-        // Next two bytes are version major and minor
-        self.version_major = decoder.get_u8();
-        self.version_minor = decoder.get_u8();
-        let table = decoder.decode_table();
+        // // Next two bytes are version major and minor
+        // self.version_major = decoder.take_u8();
+        // self.version_minor = decoder.take_u8();
+        // let table = decoder.decode_table();
+        // let mechanisms = decoder.take_long_string();
+        // let locales = decoder.take_long_string();
 
-        // decode_table(&frame_data[offset..]);
+        let encoder = encode::Encoder::new();
+        let mut hash = std::collections::HashMap::new();
+        hash.insert("Child Table".to_owned(), Value::Bool(false));
+        let table1 = Value::Table(hash);
+
+        let mut hash = std::collections::HashMap::new();
+        hash.insert("Parent table".to_owned(), table1);
+        hash.insert(
+            "Parent value".into(),
+            Value::ShortString("Test outer short".into()),
+        );
+
+        encoder.encode_value(Value::Table(hash));
+        let frame = encoder.buffer.clone().take();
+        let decoder = decode::Decoder::new(&frame);
+        let first = decoder.take_next_value();
+        println!("First: {first:?}");
+
+        // I think what I want to do is have a function which matches on class_type and method_type as a tuple and that points to similar funcionality to that of spec.py class Connection etc.
     }
 
     fn new() -> Self {
