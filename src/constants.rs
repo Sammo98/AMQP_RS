@@ -1,6 +1,6 @@
 pub const FRAME_END: u8 = 206; // xCE
 
-pub const PROTOCOL_HEADER: [u8; 8] = [65, 77, 81, 80, 0, 0, 9, 1]; // "AMPQ0091"
+pub const PROTOCOL_HEADER: [u8; 8] = [65, 77, 81, 80, 0, 0, 9, 1]; // "AMQP0091"
 
 pub mod size {
     pub const FIELD_TYPE_SIZE: usize = 1;

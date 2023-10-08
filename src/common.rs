@@ -54,6 +54,7 @@ impl ConnectionClassMethodType {
             _ => Self::Start,
         }
     }
+    // TODO! Generate to bytes method
 }
 
 #[derive(Debug)]
@@ -73,6 +74,16 @@ impl FrameType {
             3 => Self::Body,
             4 => Self::Heartbeat,
             _ => Self::FatalError,
+        }
+    }
+
+    pub fn as_octet(&self) -> u8 {
+        match self {
+            FrameType::Method => 1,
+            FrameType::Header => 2,
+            FrameType::Body => 3,
+            FrameType::Heartbeat => 4,
+            FrameType::FatalError => panic!(),
         }
     }
 }

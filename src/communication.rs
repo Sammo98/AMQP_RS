@@ -1,4 +1,4 @@
-use crate::constants::{field_type, size};
+use crate::constants::{field_type, size, FRAME_END};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ pub mod decode {
 
     pub struct Decoder<'a> {
         pub buffer: &'a [u8],
-        offset: RefCell<usize>,
+        pub offset: RefCell<usize>,
     }
 
     impl<'a> Decoder<'a> {
@@ -127,12 +127,12 @@ pub mod decode {
                 BOOL => Bool(self.take_bool()),
                 LONG_STRING => LongString(self.take_long_string()),
                 SHORT_STRING => ShortString(self.take_short_string()),
-                TABLE => Table(self.decode_table()),
+                TABLE => Table(self.take_table()),
                 _ => Bool(false),
             }
         }
 
-        fn decode_table(&self) -> HashMap<String, Value> {
+        pub fn take_table(&self) -> HashMap<String, Value> {
             let mut table: HashMap<String, Value> = HashMap::new();
             let table_size = self.take_u32();
             let limit = self.get_current_offset() + table_size as usize;
@@ -149,6 +149,9 @@ pub mod decode {
 
 pub mod encode {
 
+    use crate::common::{ClassType, FrameType};
+    use crate::constants::FRAME_END;
+
     use super::*;
 
     pub struct Encoder {
@@ -164,21 +167,49 @@ pub mod encode {
             }
         }
 
-        fn build_frame<'b>(self) -> &'b [u8] {
-            todo!()
+        pub fn build_frame_from_buffer(
+            self,
+            frame_type: FrameType,
+            class_type: u16,
+            method_type: u16,
+            channel: u16,
+        ) -> Vec<u8> {
+            let mut frame: Vec<u8> = Vec::new();
+            let frame_body = self.buffer.take();
+            let frame_type_octect = frame_type.as_octet();
+            let channel = channel.to_be_bytes();
+            // TODO make 4 constant
+            let size = (frame_body.len() as u32 + 4).to_be_bytes();
+
+            let class_bytes = class_type.to_be_bytes();
+            let method_bytes = method_type.to_be_bytes();
+
+            frame.push(frame_type_octect);
+            frame.extend_from_slice(&channel);
+            frame.extend_from_slice(&size);
+            frame.extend_from_slice(&class_bytes);
+            frame.extend_from_slice(&method_bytes);
+            frame.extend(frame_body);
+            frame.push(FRAME_END);
+            frame
         }
 
-        fn add_bool(&self, boolean: bool) {
+        fn add_bool(&self, boolean: bool, with_field_type: bool) {
             let mut frame = self.buffer.borrow_mut();
-            frame.push(field_type::BOOL as u8);
+            if with_field_type {
+                frame.push(field_type::BOOL as u8)
+            };
             frame.push(boolean as u8);
         }
-        fn add_long_string(&self, string: Box<str>) {
+        fn add_long_string(&self, string: Box<str>, with_field_type: bool) {
             let mut frame = self.buffer.borrow_mut();
-            let string_size = (string.len() as u32).to_be_bytes();
-            frame.push(field_type::LONG_STRING as u8);
-            frame.extend_from_slice(&string_size);
-            frame.extend_from_slice(string.as_bytes());
+            let string_bytes = string.as_bytes();
+            let string_bytes_len = (string_bytes.len() as u32).to_be_bytes();
+            if with_field_type {
+                frame.push(field_type::LONG_STRING as u8)
+            };
+            frame.extend_from_slice(&string_bytes_len);
+            frame.extend_from_slice(string_bytes);
         }
 
         fn add_short_string(&self, string: Box<str>, with_field_type: bool) {
@@ -191,10 +222,12 @@ pub mod encode {
             frame.extend_from_slice(string.as_bytes());
         }
 
-        fn add_table(&self, table: HashMap<String, Value>) {
+        fn add_table(&self, table: HashMap<String, Value>, with_field_type: bool) {
             {
                 let mut frame = self.buffer.borrow_mut();
-                frame.push(field_type::TABLE as u8);
+                if with_field_type {
+                    frame.push(field_type::TABLE as u8)
+                };
                 // Make sure we drop the mut borrow
             }
             let start_length = self.buffer.borrow().len();
@@ -204,21 +237,21 @@ pub mod encode {
                 // The default behaviour should be that when encoding a short string as part of a table, no field type identifier is added
                 // Otherwise it must be added
                 self.add_short_string(key.into(), false);
-                self.encode_value(value);
+                self.encode_value(value, true);
             }
             let mut frame = self.buffer.borrow_mut();
             let table_length = ((frame.len() - start_length) as u32).to_be_bytes();
             frame.splice(start_length..start_length, table_length);
         }
 
-        pub fn encode_value(&self, value: Value) {
+        pub fn encode_value(&self, value: Value, with_field_type: bool) {
             use Value::*;
 
             match value {
-                Bool(boolean) => self.add_bool(boolean),
-                LongString(string) => self.add_long_string(string),
-                Table(table) => self.add_table(table),
-                ShortString(string) => self.add_short_string(string, true),
+                Bool(boolean) => self.add_bool(boolean, with_field_type),
+                LongString(string) => self.add_long_string(string, with_field_type),
+                Table(table) => self.add_table(table, with_field_type),
+                ShortString(string) => self.add_short_string(string, with_field_type),
                 ShortShortInt(_) => todo!(),
                 ShortShortUInt(_) => todo!(),
                 ShortInt(_) => todo!(),
@@ -240,16 +273,20 @@ mod tests {
 
     use std::collections::HashMap;
 
+    use crate::common::FrameType;
+
     use super::decode::Decoder;
     use super::encode::Encoder;
     use super::Value;
+    const WITHOUT_FIELD_TYPE: bool = false;
+    const WITH_FIELD_TYPE: bool = true;
 
     #[test]
     fn test_bool_translation() {
         let expected_bool = false;
         let encoder = Encoder::new();
         let bool_value = Value::Bool(expected_bool);
-        encoder.encode_value(bool_value);
+        encoder.encode_value(bool_value, WITH_FIELD_TYPE);
 
         let buffer = encoder.buffer.clone().take();
         let decoder = Decoder::new(&buffer);
@@ -266,7 +303,7 @@ mod tests {
         let expected_string: Box<str> = "TEST".into();
         let encoder = Encoder::new();
         let short_string_value = Value::ShortString(expected_string.clone());
-        encoder.encode_value(short_string_value);
+        encoder.encode_value(short_string_value, WITH_FIELD_TYPE);
 
         let buffer = encoder.buffer.clone().take();
         let decoder = Decoder::new(&buffer);
@@ -283,7 +320,7 @@ mod tests {
         let expected_string: Box<str> = "TEST".into();
         let encoder = Encoder::new();
         let short_string_value = Value::LongString(expected_string.clone());
-        encoder.encode_value(short_string_value);
+        encoder.encode_value(short_string_value, WITH_FIELD_TYPE);
 
         let buffer = encoder.buffer.clone().take();
         let decoder = Decoder::new(&buffer);
@@ -306,7 +343,7 @@ mod tests {
         map.insert("value2".to_owned(), value2);
         let table_value = Value::Table(map);
         let encoder = Encoder::new();
-        encoder.encode_value(table_value);
+        encoder.encode_value(table_value, WITH_FIELD_TYPE);
 
         let buffer = encoder.buffer.clone().take();
         let decoder = Decoder::new(&buffer);
@@ -319,5 +356,54 @@ mod tests {
         } else {
             panic!("Expected Table Value type")
         }
+    }
+
+    #[test]
+    fn test_start_ok() {
+        let mut capabilities: HashMap<String, Value> = HashMap::new();
+        capabilities.insert("authentication_failure_close".into(), Value::Bool(true));
+        capabilities.insert("basic.nack".into(), Value::Bool(true));
+        capabilities.insert("connection.blocked".into(), Value::Bool(true));
+        capabilities.insert("consumer_cancel_notify".into(), Value::Bool(true));
+        capabilities.insert("publisher_confirms".into(), Value::Bool(true));
+        let mut properties: HashMap<String, Value> = HashMap::new();
+        properties.insert("capabilities".into(), Value::Table(capabilities));
+        properties.insert(
+            "product".to_owned(),
+            Value::LongString("Rust AMQP Client Library".into()),
+        );
+        properties.insert("platform".into(), Value::LongString("Rust".into()));
+
+        let encoder = Encoder::new();
+        encoder.encode_value(Value::Table(properties), false);
+        encoder.encode_value(Value::ShortString("Mechanisms".into()), false);
+        encoder.encode_value(Value::LongString("Response".into()), false);
+        encoder.encode_value(Value::ShortString("Locales".into()), false);
+
+        let frame = encoder.build_frame_from_buffer(FrameType::Method, 10, 11, 0);
+
+        let mut decoder = Decoder::new(&frame);
+        let header = decoder.take_header();
+        let class = decoder.take_class_type();
+        let method = decoder.take_method_type();
+
+        let properties = decoder.take_table();
+        println!("Properties: {properties:?}");
+
+        let mechanisms = decoder.take_short_string();
+        println!("Mechanisms: {mechanisms:?}");
+        let response = decoder.take_long_string();
+        println!("Response: {response:?}");
+        let locales = decoder.take_short_string();
+        println!("locales: {locales:?}");
+        let offset = decoder.offset.take();
+        let header_size = header.size;
+        println!(
+            "Header size + 8: {}. Actual size {}",
+            header_size + 7,
+            frame.len()
+        );
+        let remainder = &decoder.buffer[offset..];
+        println!("Remainder: {remainder:?}");
     }
 }
