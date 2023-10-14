@@ -81,6 +81,13 @@ pub mod decode {
             u8::from_be_bytes(bytes.try_into().expect("x"))
         }
 
+        pub fn take_u16(&self) -> u16 {
+            let offset = self.get_current_offset();
+            let bytes = &self.buffer[offset..offset + size::U16_SIZE];
+            self.increment_offset_by(size::U16_SIZE);
+            u16::from_be_bytes(bytes.try_into().expect("x"))
+        }
+
         pub fn take_u32(&self) -> u32 {
             let offset = self.get_current_offset();
             let bytes = &self.buffer[offset..offset + size::U32_SIZE];
@@ -222,6 +229,24 @@ pub mod encode {
             frame.extend_from_slice(string.as_bytes());
         }
 
+        fn add_short_uint(&self, int: u16, with_field_type: bool) {
+            let mut frame = self.buffer.borrow_mut();
+            if with_field_type {
+                frame.push(field_type::SHORT_U_INT as u8)
+            };
+            let bytes = int.to_be_bytes();
+            frame.extend_from_slice(&bytes);
+        }
+
+        fn add_long_uint(&self, int: u32, with_field_type: bool) {
+            let mut frame = self.buffer.borrow_mut();
+            if with_field_type {
+                frame.push(field_type::LONG_U_INT as u8)
+            };
+            let bytes = int.to_be_bytes();
+            frame.extend_from_slice(&bytes);
+        }
+
         fn add_table(&self, table: HashMap<String, Value>, with_field_type: bool) {
             {
                 let mut frame = self.buffer.borrow_mut();
@@ -252,12 +277,12 @@ pub mod encode {
                 LongString(string) => self.add_long_string(string, with_field_type),
                 Table(table) => self.add_table(table, with_field_type),
                 ShortString(string) => self.add_short_string(string, with_field_type),
+                ShortUInt(number) => self.add_short_uint(number, with_field_type),
+                LongUInt(number) => self.add_long_uint(number, with_field_type),
                 ShortShortInt(_) => todo!(),
-                ShortShortUInt(_) => todo!(),
+                ShortShortUInt(uint) => todo!(),
                 ShortInt(_) => todo!(),
-                ShortUInt(_) => todo!(),
                 LongInt(_) => todo!(),
-                LongUInt(_) => todo!(),
                 LongLongInt(_) => todo!(),
                 LongLongUint(_) => todo!(),
                 Float(_) => todo!(),

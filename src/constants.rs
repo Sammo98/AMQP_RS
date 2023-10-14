@@ -10,6 +10,7 @@ pub mod size {
     pub const BOOL_SIZE: usize = 1;
     pub const HEADER_SIZE: usize = 7;
     pub const CLASS_OR_METHOD_TYPE_SIZE: usize = 2;
+    pub const FRAME_MIN_SIZE: usize = 4096;
 }
 
 pub mod field_type {
@@ -17,4 +18,6 @@ pub mod field_type {
     pub const LONG_STRING: char = 'S';
     pub const SHORT_STRING: char = 's';
     pub const TABLE: char = 'F';
+    pub const SHORT_U_INT: char = 'u';
+    pub const LONG_U_INT: char = 'i';
 }
