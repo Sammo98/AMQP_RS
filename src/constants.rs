@@ -10,7 +10,8 @@ pub mod size {
     pub const BOOL_SIZE: usize = 1;
     pub const HEADER_SIZE: usize = 7;
     pub const CLASS_OR_METHOD_TYPE_SIZE: usize = 2;
-    pub const FRAME_MIN_SIZE: usize = 4096;
+    pub const FRAME_MAX_SIZE: usize = 4096;
+    pub const CHANNEL_AND_METHOD_SIZE: u32 = 4;
 }
 
 pub mod field_type {
@@ -21,3 +22,35 @@ pub mod field_type {
     pub const SHORT_U_INT: char = 'u';
     pub const LONG_U_INT: char = 'i';
 }
+
+pub mod class_id {
+    pub const CONNECTION: u16 = 10;
+    pub const CHANNEL: u16 = 20;
+    pub const EXCHANGE: u16 = 40;
+    pub const QUEUE: u16 = 50;
+    pub const BASIC: u16 = 60;
+    pub const TX: u16 = 90;
+}
+
+pub mod connection_method_id {
+    pub const START: u16 = 10;
+    pub const STARTOK: u16 = 11;
+    pub const SECURE: u16 = 20;
+    pub const SECUREOK: u16 = 21;
+    pub const TUNE: u16 = 30;
+    pub const TUNEOK: u16 = 31;
+    pub const OPEN: u16 = 40;
+    pub const OPENOK: u16 = 41;
+    pub const CLOSE: u16 = 50;
+    pub const CLOSEOK: u16 = 51;
+}
+
+pub mod frame_type {
+    pub const METHOD: u8 = 1;
+    pub const HEADER: u8 = 2;
+    pub const BODY: u8 = 3;
+    pub const HEARTBEAT: u8 = 4;
+}
+
+pub const WITHOUT_FIELD_TYPE: bool = false;
+pub const WITH_FIELD_TYPE: bool = true;

@@ -174,16 +174,15 @@ pub mod encode {
             }
         }
 
-        pub fn build_frame_from_buffer(
+        pub fn build_frame(
             self,
-            frame_type: FrameType,
+            frame_type: u8,
             class_type: u16,
             method_type: u16,
             channel: u16,
         ) -> Vec<u8> {
             let mut frame: Vec<u8> = Vec::new();
             let frame_body = self.buffer.take();
-            let frame_type_octect = frame_type.as_octet();
             let channel = channel.to_be_bytes();
             // TODO make 4 constant
             let size = (frame_body.len() as u32 + 4).to_be_bytes();
@@ -191,7 +190,7 @@ pub mod encode {
             let class_bytes = class_type.to_be_bytes();
             let method_bytes = method_type.to_be_bytes();
 
-            frame.push(frame_type_octect);
+            frame.push(frame_type);
             frame.extend_from_slice(&channel);
             frame.extend_from_slice(&size);
             frame.extend_from_slice(&class_bytes);
@@ -405,7 +404,7 @@ mod tests {
         encoder.encode_value(Value::LongString("Response".into()), false);
         encoder.encode_value(Value::ShortString("Locales".into()), false);
 
-        let frame = encoder.build_frame_from_buffer(FrameType::Method, 10, 11, 0);
+        let frame = encoder.build_frame(1, 10, 11, 0);
 
         let mut decoder = Decoder::new(&frame);
         let header = decoder.take_header();

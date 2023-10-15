@@ -6,9 +6,13 @@ use std::rc::Rc;
 mod common;
 mod communication;
 mod constants;
+mod method;
+
+use method::connection::{Close, Open, ProtocolHeader, Start, StartOk, Tune, TuneOk};
 
 use crate::communication::encode::Encoder;
 use crate::communication::{decode, encode, Value};
+use crate::constants::connection_method_id::START;
 
 use common::ClassType;
 use common::ConnectionClassMethodType;
@@ -27,93 +31,36 @@ struct Client {
 }
 
 impl Client {
+    fn write(&mut self, buffer: &[u8]) {
+        self.stream.write(&buffer).unwrap();
+    }
+
+    fn read(&mut self) -> [u8; size::FRAME_MAX_SIZE] {
+        let mut buffer = [0; size::FRAME_MAX_SIZE];
+        self.stream.read(&mut buffer).unwrap();
+        buffer
+    }
+
     fn connect(&mut self) {
-        self.stream.write(&PROTOCOL_HEADER).unwrap();
-        // Send TuneOK and then Open, should receive OpenOk
+        self.write(&ProtocolHeader::to_frame());
 
-        let mut buffer = [0; size::FRAME_MIN_SIZE];
-        self.stream.read(&mut buffer).unwrap();
+        let start_buffer = self.read(); // Connection.Start
+        let start = Start::from_frame(&start_buffer);
+        let start_ok = StartOk::to_frame("PLAIN".into(), "\0guest\0guest".into(), start.locales);
+        self.write(&start_ok);
 
-        let mut decoder = decode::Decoder::new(&buffer);
-
-        // These steps happen in a specific and defined order as the decoder keeps track off the buffer offset state
-        let header = decoder.take_header();
-        let class_type = decoder.take_class_type();
-        let method_type = decoder.take_method_type();
-
-        // Next two bytes are version major and minor
-        self.version_major = decoder.take_u8();
-        self.version_minor = decoder.take_u8();
-        let table = decoder.take_table();
-        let mechanisms = decoder.take_long_string();
-        let locales = decoder.take_long_string();
-
-        let mut capabilities: HashMap<String, Value> = HashMap::new();
-        capabilities.insert("authentication_failure_close".into(), Value::Bool(true));
-        capabilities.insert("basic.nack".into(), Value::Bool(true));
-        capabilities.insert("connection.blocked".into(), Value::Bool(true));
-        capabilities.insert("consumer_cancel_notify".into(), Value::Bool(true));
-        capabilities.insert("publisher_confirms".into(), Value::Bool(true));
-
-        let mut properties: HashMap<String, Value> = HashMap::new();
-        properties.insert("capabilities".into(), Value::Table(capabilities));
-        properties.insert(
-            "product".to_owned(),
-            Value::LongString("Rust AMQP Client Library".into()),
-        );
-        properties.insert("platform".into(), Value::LongString("Rust".into()));
-        let client_properties = Value::Table(properties);
-        let encoder = encode::Encoder::new();
-        encoder.encode_value(client_properties, false);
-        encoder.encode_value(Value::ShortString("PLAIN".into()), false);
-        encoder.encode_value(Value::LongString("\0guest\0guest".into()), false);
-        encoder.encode_value(Value::ShortString(locales), false);
-
-        let frame = encoder.build_frame_from_buffer(FrameType::Method, 10, 11, 0);
-        self.stream.write(&frame).unwrap();
-
-        let mut buffer = [0; size::FRAME_MIN_SIZE];
-        self.stream.read(&mut buffer).unwrap();
-
-        // TUNE
-        let mut decoder = decode::Decoder::new(&buffer);
-        let header = decoder.take_header();
-        let class_type = decoder.take_class_type();
-        let method_type = decoder.take_method_type();
-        let proposed_maximum_channels = decoder.take_u16();
-        let frame_max = decoder.take_u32();
-        let hb = decoder.take_u16();
-        // println!(
-        //     "Max Channel: {}. Frame Max: {}. Heartbeat: {}",
-        //     proposed_maximum_channels, frame_max, hb
-        // );
+        let tune_buffer = self.read();
+        let tune = Tune::from_frame(&tune_buffer);
 
         // TUNE OK
-        let encoder = encode::Encoder::new();
-        encoder.encode_value(Value::ShortUInt(2047), false); // Channel Max
-        encoder.encode_value(Value::LongUInt(131072), false); // Frame Max
-        encoder.encode_value(Value::ShortUInt(0), false); // Heart beat
-        let frame = encoder.build_frame_from_buffer(FrameType::Method, 10, 31, 0);
-        self.stream.write(&frame).unwrap();
+        let tune_ok = TuneOk::to_frame(tune.channel_max, tune.frame_max, tune.heartbeat);
+        self.write(&tune_ok);
 
-        let encoder = encode::Encoder::new();
-        encoder.encode_value(Value::ShortString("/".into()), false); // vhost
-        encoder.encode_value(Value::ShortString("".into()), false);
-        encoder.encode_value(Value::Bool(true), false);
-        let frame = encoder.build_frame_from_buffer(FrameType::Method, 10, 40, 0);
-        self.stream.write(&frame).unwrap();
-        println!("Sleeping");
-        sleep(Duration::from_secs(2));
+        let open = Open::to_frame("/".into(), "".into(), true);
+        self.write(&open);
 
-        let mut buffer = [0; size::FRAME_MIN_SIZE];
-        println!("Reading again");
-        self.stream.read(&mut buffer).unwrap();
-
-        let mut decoder = decode::Decoder::new(&buffer);
-        let header = decoder.take_header();
-        let class_type = decoder.take_class_type();
-        let method_type = decoder.take_method_type();
-        println!("{:?}, {:?}, {:?}", header, class_type, method_type);
+        let close = Close::to_frame();
+        self.write(&close);
 
         // I think what I want to do is have a function which matches on class_type and method_type as a tuple and that points to similar funcionality to that of spec.py class Connection etc.
     }
