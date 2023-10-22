@@ -1,4 +1,4 @@
-use crate::constants::{field_type, size, FRAME_END};
+use crate::constants::{field_type, frame_type, size, FRAME_END};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -172,6 +172,43 @@ pub mod encode {
             Self {
                 buffer: RefCell::new(Vec::new()),
             }
+        }
+        pub fn build_body_frame(self, channel: u16, body: String) -> Vec<u8> {
+            let mut frame: Vec<u8> = Vec::new();
+            let channel = channel.to_be_bytes();
+            let size = (body.len() as u32).to_be_bytes();
+            let message = body.as_bytes();
+
+            frame.push(frame_type::BODY);
+            frame.extend_from_slice(&channel);
+            frame.extend_from_slice(&size); // Size of message payload.
+
+            frame.extend_from_slice(message);
+
+            frame.push(FRAME_END);
+            frame
+        }
+
+        pub fn build_content_frame(self, frame_type: u8, class_type: u16, channel: u16) -> Vec<u8> {
+            let mut frame: Vec<u8> = Vec::new();
+            let channel = channel.to_be_bytes();
+            let properties_flags = [0_u8; 2];
+            let body_size = ("Hello World!".len() as u64).to_be_bytes();
+            let frame_size = (14 as u32).to_be_bytes();
+
+            let class_bytes = class_type.to_be_bytes();
+
+            // These 3 are make up the frame header, for the content header frame.
+            frame.push(frame_type);
+            frame.extend_from_slice(&channel);
+            frame.extend_from_slice(&frame_size); // This is the content header frame size, same as usual
+
+            frame.extend_from_slice(&class_bytes); // This is 2 bytes
+            frame.extend_from_slice(&[0_u8; 2]); // This is the weight field, unused and must be zero for some reason?
+            frame.extend_from_slice(&body_size);
+            frame.extend_from_slice(&properties_flags); // Not sure about this yet ...
+            frame.push(FRAME_END);
+            frame
         }
 
         pub fn build_frame(

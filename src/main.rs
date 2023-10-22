@@ -8,11 +8,16 @@ mod communication;
 mod constants;
 mod method;
 
+use method::basic;
+use method::channel;
 use method::connection::{Close, Open, ProtocolHeader, Start, StartOk, Tune, TuneOk};
+use method::queue;
 
 use crate::communication::encode::Encoder;
 use crate::communication::{decode, encode, Value};
+use crate::constants::class_id;
 use crate::constants::connection_method_id::START;
+use crate::constants::frame_type;
 
 use common::ClassType;
 use common::ConnectionClassMethodType;
@@ -59,10 +64,31 @@ impl Client {
         let open = Open::to_frame("/".into(), "".into(), true);
         self.write(&open);
 
+        _ = self.read();
+
+        let open_channel = channel::Open::to_frame();
+        self.write(&open_channel);
+
+        let open_okay = channel::OpenOk::from_frame(&self.read());
+
+        let declare = queue::Declare::to_frame();
+        self.write(&declare);
+        _ = self.read();
+        let publish = basic::Publish::to_frame();
+        println!("Publish: {publish:?}");
+        self.write(&publish);
+
+        let encoder = Encoder::new();
+        let f = encoder.build_content_frame(frame_type::HEADER, class_id::BASIC, 1);
+        self.write(&f);
+
+        let encoder = Encoder::new();
+        let b = encoder.build_body_frame(1, "Hello World!".into());
+        println!("B: {b:?}");
+        self.write(&b);
+
         let close = Close::to_frame();
         self.write(&close);
-
-        // I think what I want to do is have a function which matches on class_type and method_type as a tuple and that points to similar funcionality to that of spec.py class Connection etc.
     }
 
     fn new() -> Self {

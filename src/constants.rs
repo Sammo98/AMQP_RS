@@ -45,6 +45,40 @@ pub mod connection_method_id {
     pub const CLOSEOK: u16 = 51;
 }
 
+pub mod channel_method_id {
+    pub const OPEN: u16 = 10;
+    pub const OPENOK: u16 = 11;
+    pub const FLOW: u16 = 20;
+    pub const FLOWOK: u16 = 21;
+    pub const CLOSE: u16 = 40;
+    pub const CLOSEOK: u16 = 41;
+}
+
+pub mod queue_method_id {
+    pub const DECLARE: u16 = 10;
+    pub const DECLAREOK: u16 = 11;
+    pub const BIND: u16 = 20;
+    pub const BINDOK: u16 = 21;
+    pub const PURGE: u16 = 30;
+    pub const PURGEOK: u16 = 31;
+    pub const DELETE: u16 = 40;
+    pub const DELETEOK: u16 = 41;
+    pub const UNBIND: u16 = 50;
+    pub const UNBINDOK: u16 = 51;
+}
+
+pub mod basic_method_id {
+    pub const QOS: u16 = 10;
+    pub const QOSOK: u16 = 11;
+    pub const CONSUME: u16 = 20;
+    pub const CONSUMEOK: u16 = 21;
+    pub const CANCEL: u16 = 30;
+    pub const CANCELOK: u16 = 31;
+    pub const PUBLISH: u16 = 40;
+    pub const RECOVER: u16 = 110;
+    pub const RECOVEROK: u16 = 111;
+}
+
 pub mod frame_type {
     pub const METHOD: u8 = 1;
     pub const HEADER: u8 = 2;
