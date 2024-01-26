@@ -7,6 +7,7 @@ pub mod size {
     pub const U8_SIZE: usize = 1;
     pub const U16_SIZE: usize = 2;
     pub const U32_SIZE: usize = 4;
+    pub const U64_SIZE: usize = 8;
     pub const BOOL_SIZE: usize = 1;
     pub const HEADER_SIZE: usize = 7;
     pub const CLASS_OR_METHOD_TYPE_SIZE: usize = 2;
@@ -84,6 +85,23 @@ pub mod frame_type {
     pub const HEADER: u8 = 2;
     pub const BODY: u8 = 3;
     pub const HEARTBEAT: u8 = 4;
+}
+
+pub mod properties {
+    pub const CONTENT_TYPE: u64 = 1 << 15;
+    pub const CONTENT_ENCODING: u64 = 1 << 14;
+    pub const HEADERS: u64 = 1 << 13;
+    pub const DELIVERY_MODE: u64 = 1 << 12;
+    pub const PRIORITY: u64 = 1 << 11;
+    pub const CORRELATION_ID: u64 = 1 << 10;
+    pub const REPLY_TO: u64 = 1 << 9;
+    pub const EXPIRATION: u64 = 1 << 8;
+    pub const MESSAGE_ID: u64 = 1 << 7;
+    pub const TIMESTAMP: u64 = 1 << 6;
+    pub const TYPE: u64 = 1 << 5;
+    pub const USER_ID: u64 = 1 << 4;
+    pub const APP_ID: u64 = 1 << 3;
+    pub const CLUSTER_ID: u64 = 1 << 2;
 }
 
 pub const WITHOUT_FIELD_TYPE: bool = false;

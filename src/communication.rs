@@ -22,6 +22,7 @@ pub enum Value {
 }
 
 pub mod decode {
+
     // General purpose module for decoding.
     // Predominantly Exposes the `Decoder` struct which "takes" values from the buffer
     // Taking values consists of decoding the next value (based on field type) and subsequently increasing
@@ -47,6 +48,29 @@ pub mod decode {
             *self.offset.borrow()
         }
 
+        pub fn print_remainder(&self) {
+            let offset = self.get_current_offset();
+            let current = &self.buffer[offset..];
+            println!("{:?}", &current);
+        }
+
+        pub fn next_frame(&self) {
+            let offset = self.get_current_offset();
+            let current = &self.buffer[offset];
+            assert_eq!(current, &0xCE);
+            self.increment_offset_by(1);
+        }
+
+        pub fn take_till_frame_end(&self) -> Vec<u8> {
+            let offset = self.get_current_offset();
+            let res = self.buffer[offset..]
+                .iter()
+                .take_while(|&x| x != &0xCE)
+                .map(|x| *x)
+                .collect::<Vec<u8>>();
+            res
+        }
+
         fn increment_offset_by(&self, increment: usize) {
             self.offset.replace_with(|&mut old| old + increment);
         }
@@ -63,10 +87,12 @@ pub mod decode {
         pub fn take_class_type(&self) -> ClassType {
             let offset = self.get_current_offset();
             let bytes = &self.buffer[offset..offset + size::CLASS_OR_METHOD_TYPE_SIZE];
+            println!("{bytes:?}");
             self.increment_offset_by(size::CLASS_OR_METHOD_TYPE_SIZE);
             ClassType::from_bytes(bytes)
         }
 
+        // TODO THIS IS WRONG
         pub fn take_method_type(&self) -> ConnectionClassMethodType {
             let offset = self.get_current_offset();
             let bytes = &self.buffer[offset..offset + size::CLASS_OR_METHOD_TYPE_SIZE];
@@ -93,6 +119,13 @@ pub mod decode {
             let bytes = &self.buffer[offset..offset + size::U32_SIZE];
             self.increment_offset_by(size::U32_SIZE);
             u32::from_be_bytes(bytes.try_into().expect("x"))
+        }
+
+        pub fn take_u64(&self) -> u64 {
+            let offset = self.get_current_offset();
+            let bytes = &self.buffer[offset..offset + size::U64_SIZE];
+            self.increment_offset_by(size::U64_SIZE);
+            u64::from_be_bytes(bytes.try_into().expect("x"))
         }
 
         pub fn take_short_string(&self) -> Box<str> {
@@ -341,6 +374,18 @@ mod tests {
     use super::Value;
     const WITHOUT_FIELD_TYPE: bool = false;
     const WITH_FIELD_TYPE: bool = true;
+    use std::cell::RefCell;
+
+    #[test]
+    fn test_next_frame() {
+        let buffer = [1_u8, 1, 1, 0xCE, 2, 2, 2, 2, 0xCE];
+        let decoder = Decoder::new(&buffer);
+        let expected_start_of_next_frame = 4_usize;
+        decoder.next_frame();
+        decoder.print_remainder();
+        let actual = decoder.offset.into_inner();
+        assert_eq!(actual, expected_start_of_next_frame);
+    }
 
     #[test]
     fn test_bool_translation() {

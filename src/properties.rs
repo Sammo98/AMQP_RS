@@ -1,0 +1,16 @@
+enum Properties {
+    ContentType,
+    ContentEncoding,
+    Headers,
+    DeliveryMode,
+    Priority,
+    CorrelationId,
+    ReplyTo,
+    Expiration,
+    MessageId,
+    TimeStamp,
+    Type,
+    UserId,
+    AppId,
+    ClusterId,
+}

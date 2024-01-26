@@ -12,10 +12,7 @@ impl Declare {
         // Reserved
         encoder.encode_value(Value::ShortUInt(0), WITHOUT_FIELD_TYPE);
         // Q name
-        encoder.encode_value(
-            Value::ShortString("another_queue".into()),
-            WITHOUT_FIELD_TYPE,
-        );
+        encoder.encode_value(Value::ShortString("my_queue".into()), WITHOUT_FIELD_TYPE);
         // Passive
         encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
         // Durable

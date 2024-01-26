@@ -1,5 +1,9 @@
+use core::panic;
+use std::char::DecodeUtf16;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::net::TcpStream;
 use std::rc::Rc;
 
@@ -7,12 +11,14 @@ mod common;
 mod communication;
 mod constants;
 mod method;
+mod properties;
 
 use method::basic;
 use method::channel;
 use method::connection::{Close, Open, ProtocolHeader, Start, StartOk, Tune, TuneOk};
 use method::queue;
 
+use crate::communication::decode::Decoder;
 use crate::communication::encode::Encoder;
 use crate::communication::{decode, encode, Value};
 use crate::constants::class_id;
@@ -69,13 +75,12 @@ impl Client {
         let open_channel = channel::Open::to_frame();
         self.write(&open_channel);
 
-        let open_okay = channel::OpenOk::from_frame(&self.read());
+        let _open_okay = channel::OpenOk::from_frame(&self.read());
 
         let declare = queue::Declare::to_frame();
         self.write(&declare);
         _ = self.read();
         let publish = basic::Publish::to_frame();
-        println!("Publish: {publish:?}");
         self.write(&publish);
 
         let encoder = Encoder::new();
@@ -84,8 +89,81 @@ impl Client {
 
         let encoder = Encoder::new();
         let b = encoder.build_body_frame(1, "Hello World!".into());
-        println!("B: {b:?}");
+        println!("{b:?}");
         self.write(&b);
+
+        let consume = basic::Consume::to_frame();
+        self.write(&consume);
+
+        // This would be consume ok
+        _ = self.read();
+
+        // Here we are waiting on messages
+        let result = self.read();
+        println!("After read");
+
+        // This code encapsulates the Basic.Deliver frame
+        let mut dec = Decoder::new(&result);
+        let header = dec.take_header();
+        println!("{header:?}");
+        let class = dec.take_class_type();
+        println!("{class:?}");
+        let _ = dec.take_method_type();
+        let consumer_tag = dec.take_short_string();
+        println!("tag {consumer_tag:?}");
+        let delivery_tag = dec.take_u64();
+        println!("Delivery tag: {delivery_tag}");
+        let redelivered = dec.take_bool();
+        println!("Redelivered {redelivered}");
+        let exchange = dec.take_short_string();
+        println!("exc {exchange:?}");
+        let routing = dec.take_short_string();
+        println!("routing {routing:?}");
+
+        // Content frame?
+        dec.next_frame();
+        let header = dec.take_header();
+        println!("{header:?}");
+        let class = dec.take_class_type();
+        println!("{class:?}");
+        let _weight = dec.take_u16();
+        let length = dec.take_u64();
+        println!("length: {length}");
+
+        // properties - I need to learn how this works, but this is following pika logic
+        let mut flags = 0_u64;
+        let mut flag_index = 0_u16;
+        loop {
+            let partial_flags = dec.take_u16() as u64;
+            flags = flags | (partial_flags << (flag_index * 16));
+            if (partial_flags & 1) == 0 {
+                break;
+            } else {
+                flag_index += 1;
+            }
+        }
+        let properties = if (flags & constants::properties::HEADERS) != 0 {
+            println!("We got a table!");
+            dec.take_table()
+        } else {
+            HashMap::new()
+        };
+        println!("Properties: {properties:?}");
+        let properties = if (flags & constants::properties::DELIVERY_MODE) != 0 {
+            println!("we got a delivery mode!");
+            dec.take_u8()
+        } else {
+            0
+        };
+        println!("Properties: {properties:?}");
+
+        dec.next_frame();
+
+        let header = dec.take_header();
+        println!("{header:?}");
+        let x = dec.take_till_frame_end();
+        let y = String::from_utf8(x);
+        println!("{y:?}");
 
         let close = Close::to_frame();
         self.write(&close);
