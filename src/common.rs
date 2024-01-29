@@ -13,8 +13,6 @@ pub enum ClassType {
 impl ClassType {
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let id = u16::from_be_bytes(bytes.try_into().expect("Falied"));
-        let le_id = u16::from_le_bytes(bytes.try_into().expect("Falied"));
-        println!(" le id is {le_id}");
         match id {
             10 => Self::Connection,
             20 => Self::Channel,

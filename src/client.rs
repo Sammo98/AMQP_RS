@@ -10,42 +10,54 @@ use crate::method::connection;
 use crate::method::queue;
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::Read;
-use std::io::Write;
-use std::net::TcpStream;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub struct Client {
-    stream: TcpStream,
+    connection: TcpStream,
     max_buffer_size: usize,
     channel: Option<u16>,
 }
 
 impl Client {
-    pub fn new(address: &str) -> Self {
-        let stream = TcpStream::connect(address).expect("Failed to connect to address");
+    pub async fn new(address: &str) -> Self {
+        let connection = TcpStream::connect(address)
+            .await
+            .expect("Failed to connect to address");
+
         Self {
-            stream,
+            connection,
             max_buffer_size: FRAME_MAX_SIZE,
             channel: None,
         }
     }
 
-    fn read(&mut self) -> Result<[u8; FRAME_MAX_SIZE]> {
+    async fn read(&mut self) -> Result<[u8; FRAME_MAX_SIZE]> {
         let mut buffer = [0_u8; FRAME_MAX_SIZE];
-        self.stream.read(&mut buffer)?;
+        self.connection.read(&mut buffer).await?;
         Ok(buffer)
     }
 
-    pub fn connect(&mut self) -> Result<()> {
-        // Write protocol header
-        _ = self.stream.write(&PROTOCOL_HEADER)?;
+    async fn write(&mut self, bytes: &[u8]) -> Result<()> {
+        self.connection.write_all(bytes).await?;
+        Ok(())
+    }
+
+    pub async fn connect(&mut self) -> Result<()> {
+        // Write protocol headero
+        println!("Trying to write prot head");
+        let x = self.write(&PROTOCOL_HEADER).await;
+        println!("{x:?}");
+        println!("Wrote protocol header");
 
         // Read Start
         let start: connection::Start;
         {
-            let buffer = self.read()?;
+            println!("Trying to read constart");
+            let buffer = self.read().await?;
             start = connection::Start::from_frame(&buffer);
         }
 
@@ -57,13 +69,15 @@ impl Client {
                 "\0guest\0guest".into(),
                 start.locales,
             );
-            self.stream.write(&start_ok)?;
+            self.write(&start_ok).await?;
+            println!("Wrote start ok ");
         }
 
         // Read Tune
         let tune: connection::Tune;
         {
-            let buffer = self.read()?;
+            let buffer = self.read().await?;
+            println!("Read tune");
             tune = connection::Tune::from_frame(&buffer);
         }
 
@@ -72,50 +86,50 @@ impl Client {
         {
             tune_ok =
                 connection::TuneOk::to_frame(tune.channel_max, tune.frame_max, tune.heartbeat);
-            self.stream.write(&tune_ok)?;
+            self.write(&tune_ok).await?;
         }
 
         // Read Open
         let open: Vec<u8>;
         {
             open = connection::Open::to_frame("/".into(), "".into(), true);
-            self.stream.write(&open)?;
+            self.write(&open).await?;
         }
 
         // OpenOk TODO
-        _ = self.read()?;
+        _ = self.read().await?;
 
         Ok(())
     }
 
-    fn create_channel(&mut self) -> Result<()> {
+    async fn create_channel(&mut self) -> Result<()> {
         match self.channel {
             Some(_) => Ok(()),
             None => {
                 let open: Vec<u8> = channel::Open::to_frame();
-                self.stream.write(&open)?;
-                let buffer = self.read()?;
+                self.write(&open).await?;
+                let buffer = self.read().await?;
                 let open_ok = channel::OpenOk::from_frame(&buffer);
                 self.channel = Some(open_ok.channel);
                 Ok(())
             }
         }
     }
-    pub fn create_queue(&mut self, queue_name: &str) -> Result<()> {
+    pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
         if let None = self.channel {
-            self.create_channel()?;
+            self.create_channel().await?;
         }
 
         let declare = queue::Declare::to_frame(queue_name, false, false, false, false, false);
-        self.stream.write(&declare)?;
+        self.write(&declare).await?;
 
         // DeclareOk TODO
-        _ = self.read()?;
+        _ = self.read().await?;
 
         Ok(())
     }
 
-    pub fn send_message(
+    pub async fn send_message(
         &mut self,
         message: &str,
         queue: &str,
@@ -143,22 +157,20 @@ impl Client {
         full_buffer.extend_from_slice(&body);
         println!("{full_buffer:?}");
 
-        self.stream.write(&full_buffer)?;
+        self.write(&full_buffer).await?;
         Ok(())
 
         // Body
     }
 
-    pub fn consume_on_queue(&mut self, queue: &str) -> Result<()> {
+    pub async fn consume_on_queue(&mut self, queue: &str) -> Result<()> {
         let consume = basic::Consume::to_frame(queue);
-        self.stream.write(&consume)?;
+        self.write(&consume).await?;
 
         // Consume okay!
-        let mut buffer = [0_u8; 1000];
-        self.stream.read(&mut buffer)?;
+        self.read().await?;
 
-        let mut buffer = [0_u8; FRAME_MAX_SIZE];
-        while let Ok(_) = self.stream.read(&mut buffer) {
+        while let Ok(mut buffer) = self.read().await {
             let mut decoder = Decoder::new(&buffer);
             let _header = decoder.take_header();
             let _class = decoder.take_class_type();
@@ -201,8 +213,9 @@ impl Client {
             let x = decoder.take_till_frame_end();
             let y = String::from_utf8(x);
             println!("RECEIVED MESSAGE {y:?}");
-            buffer = [0_u8; FRAME_MAX_SIZE];
         }
         Ok(())
     }
 }
+
+fn fun_name() {}

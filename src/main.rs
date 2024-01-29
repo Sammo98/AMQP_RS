@@ -7,13 +7,13 @@ use std::io::BufReader;
 use std::net::TcpStream;
 use std::rc::Rc;
 
+mod client;
 mod common;
 mod communication;
 mod constants;
 mod errors;
 mod method;
 mod properties;
-mod publisher;
 
 use method::basic;
 use method::channel;
@@ -50,7 +50,17 @@ impl Client {
 
     fn read(&mut self) -> [u8; size::FRAME_MAX_SIZE] {
         let mut buffer = [0; size::FRAME_MAX_SIZE];
-        self.stream.read(&mut buffer).unwrap();
+        // match stream.try_read(&mut data) {
+        //     Ok(n) => {
+        //         println!("read {} bytes", n);
+        //     }
+        //     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+        //         continue;
+        //     }
+        //     Err(e) => {
+        //         return Err(e.into());
+        //     }
+        // }
         buffer
     }
 
@@ -180,14 +190,12 @@ impl Client {
     }
 }
 
-fn main() {
-    // let mut client = Client::new();
-    // client.connect();
-    let mut client = crate::publisher::Client::new("127.0.0.1:5672");
-    client.connect().unwrap();
-    client.create_queue("test_queue").unwrap();
-    // client
-    //     .send_message("test_message", "test_queue", "", false, false)
-    //     .unwrap();
-    client.consume_on_queue("test_queue").unwrap();
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = crate::client::Client::new("127.0.0.1:5672").await;
+    println!("About to call connect");
+    client.connect().await?;
+    client.create_queue("test_queue").await?;
+    client.consume_on_queue("test_queue").await?;
+    Ok(())
 }
