@@ -10,16 +10,24 @@ const QUEUE: &'static str = "my_queue";
 pub struct Publish {}
 
 impl Publish {
-    pub fn to_frame() -> Vec<u8> {
+    pub fn to_frame(queue: &str, exchange: &str, mandatory: bool, immediate: bool) -> Vec<u8> {
         let encoder = Encoder::new();
         //reserved
         encoder.encode_value(Value::ShortUInt(0), WITHOUT_FIELD_TYPE);
-        // Exchange Name
-        encoder.encode_value(Value::ShortString("".into()), WITHOUT_FIELD_TYPE);
+        // Exchange Name - use "" for now
+        encoder.encode_value(Value::ShortString(exchange.into()), WITHOUT_FIELD_TYPE);
         // Queue name (routing key)
-        encoder.encode_value(Value::ShortString(QUEUE.into()), WITHOUT_FIELD_TYPE);
-        // madnaotry
-        encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
+        encoder.encode_value(Value::ShortString(queue.into()), WITHOUT_FIELD_TYPE);
+
+        // mandatory + immediate as bits
+        let mut bit_buffer: u8 = 0b0000_0000;
+        if mandatory {
+            bit_buffer |= 1 << 0;
+        }
+        if immediate {
+            bit_buffer |= 1 << 1;
+        }
+        encoder.encode_value(Value::ShortShortUInt(bit_buffer), WITHOUT_FIELD_TYPE);
 
         encoder.build_frame(
             frame_type::METHOD,
@@ -47,15 +55,15 @@ impl Consume {
         // no local
         // Only accepts one bit, so this one bool will apply to the next 3 fields, need to work out how to send!
         // Presumably one u8 that we bit shift
-        encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
+        encoder.encode_value(Value::ShortShortUInt(0), WITHOUT_FIELD_TYPE);
         // no ack
-        // encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
         // exclusive
         // encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
         // no-wait
         // encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
         encoder.encode_value(Value::Table(HashMap::new()), WITHOUT_FIELD_TYPE);
 
+        println!("buffer {:?}", encoder.buffer);
         encoder.build_frame(
             frame_type::METHOD,
             class_id::BASIC,

@@ -96,7 +96,8 @@ impl Tune {
     pub fn from_frame(buffer: &[u8]) -> Self {
         let mut decoder = Decoder::new(buffer);
 
-        _ = decoder.take_header();
+        let header = decoder.take_header();
+        println!("{header:?}");
         _ = decoder.take_class_type();
         _ = decoder.take_method_type();
 

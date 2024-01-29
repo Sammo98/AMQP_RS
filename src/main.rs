@@ -10,8 +10,10 @@ use std::rc::Rc;
 mod common;
 mod communication;
 mod constants;
+mod errors;
 mod method;
 mod properties;
+mod publisher;
 
 use method::basic;
 use method::channel;
@@ -70,6 +72,7 @@ impl Client {
         let open = Open::to_frame("/".into(), "".into(), true);
         self.write(&open);
 
+        // Open ok ?
         _ = self.read();
 
         let open_channel = channel::Open::to_frame();
@@ -77,20 +80,25 @@ impl Client {
 
         let _open_okay = channel::OpenOk::from_frame(&self.read());
 
-        let declare = queue::Declare::to_frame();
+        let declare = queue::Declare::to_frame("hello_dur", false, false, false, false, false);
         self.write(&declare);
         _ = self.read();
-        let publish = basic::Publish::to_frame();
-        self.write(&publish);
+
+        let mut message_vec: Vec<u8> = Vec::new();
+        let publish = basic::Publish::to_frame("my_queue", "", false, false);
+
+        message_vec.extend_from_slice(&publish);
 
         let encoder = Encoder::new();
-        let f = encoder.build_content_frame(frame_type::HEADER, class_id::BASIC, 1);
-        self.write(&f);
+        let f = encoder.build_content_frame(frame_type::HEADER, class_id::BASIC, 1, 12);
+        message_vec.extend_from_slice(&f);
+        // self.write(&f);
 
         let encoder = Encoder::new();
         let b = encoder.build_body_frame(1, "Hello World!".into());
-        println!("{b:?}");
-        self.write(&b);
+        message_vec.extend_from_slice(&b);
+        self.write(&message_vec);
+        // self.write(&b);
 
         let consume = basic::Consume::to_frame();
         self.write(&consume);
@@ -182,6 +190,12 @@ impl Client {
 }
 
 fn main() {
-    let mut client = Client::new();
-    client.connect();
+    // let mut client = Client::new();
+    // client.connect();
+    let mut client = crate::publisher::Client::new("127.0.0.1:5672");
+    client.connect().unwrap();
+    client.create_queue("test_queue").unwrap();
+    client
+        .send_message("test_message", "test_queue", "", false, false)
+        .unwrap();
 }

@@ -189,6 +189,8 @@ pub mod decode {
 
 pub mod encode {
 
+    use core::panic;
+
     use crate::common::{ClassType, FrameType};
     use crate::constants::FRAME_END;
 
@@ -207,6 +209,7 @@ pub mod encode {
             }
         }
         pub fn build_body_frame(self, channel: u16, body: String) -> Vec<u8> {
+            // TODO
             let mut frame: Vec<u8> = Vec::new();
             let channel = channel.to_be_bytes();
             let size = (body.len() as u32).to_be_bytes();
@@ -222,11 +225,18 @@ pub mod encode {
             frame
         }
 
-        pub fn build_content_frame(self, frame_type: u8, class_type: u16, channel: u16) -> Vec<u8> {
+        pub fn build_content_frame(
+            self,
+            frame_type: u8,
+            class_type: u16,
+            channel: u16,
+            size: u64,
+        ) -> Vec<u8> {
+            // Todo
             let mut frame: Vec<u8> = Vec::new();
             let channel = channel.to_be_bytes();
             let properties_flags = [0_u8; 2];
-            let body_size = ("Hello World!".len() as u64).to_be_bytes();
+            let body_size = size.to_be_bytes();
             let frame_size = (14 as u32).to_be_bytes();
 
             let class_bytes = class_type.to_be_bytes();
@@ -307,6 +317,15 @@ pub mod encode {
             frame.extend_from_slice(&bytes);
         }
 
+        fn add_short_short_uint(&self, int: u8, with_field_type: bool) {
+            let mut frame = self.buffer.borrow_mut();
+            if with_field_type {
+                panic!("Not implemented");
+            };
+            let bytes = int.to_be_bytes();
+            frame.extend_from_slice(&bytes);
+        }
+
         fn add_long_uint(&self, int: u32, with_field_type: bool) {
             let mut frame = self.buffer.borrow_mut();
             if with_field_type {
@@ -349,7 +368,7 @@ pub mod encode {
                 ShortUInt(number) => self.add_short_uint(number, with_field_type),
                 LongUInt(number) => self.add_long_uint(number, with_field_type),
                 ShortShortInt(_) => todo!(),
-                ShortShortUInt(uint) => todo!(),
+                ShortShortUInt(uint) => self.add_short_short_uint(uint, with_field_type),
                 ShortInt(_) => todo!(),
                 LongInt(_) => todo!(),
                 LongLongInt(_) => todo!(),

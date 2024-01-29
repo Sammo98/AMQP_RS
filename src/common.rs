@@ -22,19 +22,7 @@ impl ClassType {
             50 => Self::Queue,
             60 => Self::Basic,
             90 => Self::Transaction,
-            // Don't ask me why, but sometimes we get little endian...
-            _ => {
-                let id = u16::from_le_bytes(bytes.try_into().expect("Falied"));
-                match id {
-                    10 => Self::Connection,
-                    20 => Self::Channel,
-                    40 => Self::Exchange,
-                    50 => Self::Queue,
-                    60 => Self::Basic,
-                    90 => Self::Transaction,
-                    _ => panic!("Unsupported class type"),
-                }
-            }
+            _ => panic!("Unsupported class type"),
         }
     }
 }

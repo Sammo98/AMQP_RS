@@ -8,6 +8,7 @@ pub struct Open {}
 impl Open {
     pub fn to_frame() -> Vec<u8> {
         let encoder = Encoder::new();
+        // Reserved, not sure this does anything
         encoder.encode_value(Value::ShortString("1".into()), false);
         encoder.build_frame(
             frame_type::METHOD,
@@ -19,17 +20,21 @@ impl Open {
     }
 }
 
-pub struct OpenOk {}
+pub struct OpenOk {
+    pub channel: u16,
+}
 
 impl OpenOk {
     pub fn from_frame(buffer: &[u8]) -> Self {
         let mut decoder = Decoder::new(buffer);
-        _ = decoder.take_header();
+        let header = decoder.take_header();
         _ = decoder.take_class_type();
         _ = decoder.take_method_type();
 
         let res = decoder.take_long_string();
-        println!("{res:?}");
-        Self {}
+        println!("Open channel res: {res:?}");
+        Self {
+            channel: header.channel,
+        }
     }
 }
