@@ -80,27 +80,27 @@ impl Client {
 
         let _open_okay = channel::OpenOk::from_frame(&self.read());
 
-        let declare = queue::Declare::to_frame("hello_dur", false, false, false, false, false);
+        let declare = queue::Declare::to_frame("my_queue", false, false, false, false, false);
         self.write(&declare);
         _ = self.read();
 
-        let mut message_vec: Vec<u8> = Vec::new();
-        let publish = basic::Publish::to_frame("my_queue", "", false, false);
+        // let mut message_vec: Vec<u8> = Vec::new();
+        // let publish = basic::Publish::to_frame("my_queue", "", false, false);
 
-        message_vec.extend_from_slice(&publish);
+        // message_vec.extend_from_slice(&publish);
 
-        let encoder = Encoder::new();
-        let f = encoder.build_content_frame(frame_type::HEADER, class_id::BASIC, 1, 12);
-        message_vec.extend_from_slice(&f);
-        // self.write(&f);
+        // let encoder = Encoder::new();
+        // let f = encoder.build_content_frame(frame_type::HEADER, class_id::BASIC, 1, 12);
+        // message_vec.extend_from_slice(&f);
+        // // self.write(&f);
 
-        let encoder = Encoder::new();
-        let b = encoder.build_body_frame(1, "Hello World!".into());
-        message_vec.extend_from_slice(&b);
-        self.write(&message_vec);
+        // let encoder = Encoder::new();
+        // let b = encoder.build_body_frame(1, "Hello World!".into());
+        // message_vec.extend_from_slice(&b);
+        // self.write(&message_vec);
         // self.write(&b);
 
-        let consume = basic::Consume::to_frame();
+        let consume = basic::Consume::to_frame("my_queue");
         self.write(&consume);
 
         // This would be consume ok
@@ -113,20 +113,13 @@ impl Client {
         // This code encapsulates the Basic.Deliver frame
         let mut dec = Decoder::new(&result);
         let header = dec.take_header();
-        println!("{header:?}");
         let class = dec.take_class_type();
-        println!("{class:?}");
         let _ = dec.take_method_type();
         let consumer_tag = dec.take_short_string();
-        println!("tag {consumer_tag:?}");
         let delivery_tag = dec.take_u64();
-        println!("Delivery tag: {delivery_tag}");
         let redelivered = dec.take_bool();
-        println!("Redelivered {redelivered}");
         let exchange = dec.take_short_string();
-        println!("exc {exchange:?}");
         let routing = dec.take_short_string();
-        println!("routing {routing:?}");
 
         // Content frame?
         dec.next_frame();
@@ -165,8 +158,6 @@ impl Client {
         };
         println!("Properties: {properties:?}");
 
-        dec.next_frame();
-
         let header = dec.take_header();
         println!("{header:?}");
         let x = dec.take_till_frame_end();
@@ -195,7 +186,8 @@ fn main() {
     let mut client = crate::publisher::Client::new("127.0.0.1:5672");
     client.connect().unwrap();
     client.create_queue("test_queue").unwrap();
-    client
-        .send_message("test_message", "test_queue", "", false, false)
-        .unwrap();
+    // client
+    //     .send_message("test_message", "test_queue", "", false, false)
+    //     .unwrap();
+    client.consume_on_queue("test_queue").unwrap();
 }

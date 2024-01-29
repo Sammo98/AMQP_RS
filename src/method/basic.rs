@@ -41,12 +41,12 @@ impl Publish {
 pub struct Consume {}
 
 impl Consume {
-    pub fn to_frame() -> Vec<u8> {
+    pub fn to_frame(queue: &str) -> Vec<u8> {
         let encoder = Encoder::new();
         //reserved
         encoder.encode_value(Value::ShortUInt(0), WITHOUT_FIELD_TYPE);
         // Queue name (routing key)
-        encoder.encode_value(Value::ShortString(QUEUE.into()), WITHOUT_FIELD_TYPE);
+        encoder.encode_value(Value::ShortString(queue.into()), WITHOUT_FIELD_TYPE);
         // Consumer tag
         encoder.encode_value(
             Value::ShortString("CONSUMER_TAG".into()),
@@ -63,7 +63,6 @@ impl Consume {
         // encoder.encode_value(Value::Bool(false), WITHOUT_FIELD_TYPE);
         encoder.encode_value(Value::Table(HashMap::new()), WITHOUT_FIELD_TYPE);
 
-        println!("buffer {:?}", encoder.buffer);
         encoder.build_frame(
             frame_type::METHOD,
             class_id::BASIC,

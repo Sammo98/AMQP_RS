@@ -1,3 +1,4 @@
+use crate::communication::decode::Decoder;
 use crate::communication::encode::Encoder;
 use crate::constants::class_id;
 use crate::constants::frame_type;
@@ -7,6 +8,7 @@ use crate::method::basic;
 use crate::method::channel;
 use crate::method::connection;
 use crate::method::queue;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::Read;
 use std::io::Write;
@@ -145,5 +147,62 @@ impl Client {
         Ok(())
 
         // Body
+    }
+
+    pub fn consume_on_queue(&mut self, queue: &str) -> Result<()> {
+        let consume = basic::Consume::to_frame(queue);
+        self.stream.write(&consume)?;
+
+        // Consume okay!
+        let mut buffer = [0_u8; 1000];
+        self.stream.read(&mut buffer)?;
+
+        let mut buffer = [0_u8; FRAME_MAX_SIZE];
+        while let Ok(_) = self.stream.read(&mut buffer) {
+            let mut decoder = Decoder::new(&buffer);
+            let _header = decoder.take_header();
+            let _class = decoder.take_class_type();
+            let _method = decoder.take_method_type();
+            let _consumer_tag = decoder.take_short_string();
+            let _delivery_tag = decoder.take_u64();
+            let _redelivered = decoder.take_bool();
+            let _exchange = decoder.take_short_string();
+            let _routing = decoder.take_short_string();
+            decoder.next_frame();
+            let _header = decoder.take_header();
+            let _class = decoder.take_class_type();
+            let _weight = decoder.take_u16();
+            let _length = decoder.take_u64();
+
+            // properties - I need to learn how this works, but this is following pika logic
+            let mut flags = 0_u64;
+            let mut flag_index = 0_u16;
+            loop {
+                let partial_flags = decoder.take_u16() as u64;
+                flags = flags | (partial_flags << (flag_index * 16));
+                if (partial_flags & 1) == 0 {
+                    break;
+                } else {
+                    flag_index += 1;
+                }
+            }
+            let properties = if (flags & crate::constants::properties::HEADERS) != 0 {
+                decoder.take_table()
+            } else {
+                HashMap::new()
+            };
+            let properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0 {
+                println!("we got a delivery mode!");
+                decoder.take_u8()
+            } else {
+                0
+            };
+            let header = decoder.take_header();
+            let x = decoder.take_till_frame_end();
+            let y = String::from_utf8(x);
+            println!("RECEIVED MESSAGE {y:?}");
+            buffer = [0_u8; FRAME_MAX_SIZE];
+        }
+        Ok(())
     }
 }
