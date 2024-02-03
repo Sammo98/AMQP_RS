@@ -1,3 +1,4 @@
+use crate::common::FrameType;
 use crate::communication::decode::Decoder;
 use crate::communication::encode::Encoder;
 use crate::constants::class_id;
@@ -15,6 +16,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Handler = fn(String);
 
 pub struct Client {
     connection: TcpStream,
@@ -163,16 +165,22 @@ impl Client {
         // Body
     }
 
-    pub async fn consume_on_queue(&mut self, queue: &str) -> Result<()> {
+    pub async fn consume_on_queue(&mut self, queue: &str, handler: impl Fn(String)) -> Result<()> {
         let consume = basic::Consume::to_frame(queue);
         self.write(&consume).await?;
 
         // Consume okay!
         self.read().await?;
 
-        while let Ok(mut buffer) = self.read().await {
+        while let Ok(buffer) = self.read().await {
             let mut decoder = Decoder::new(&buffer);
-            let _header = decoder.take_header();
+            let header = decoder.take_header();
+            if header.frame_type == FrameType::Heartbeat {
+                let heart_beat = [8_u8, 0, 0, 0, 0, 0, 0, 0xCE];
+                self.write(&heart_beat).await?;
+                continue;
+            }
+            println!("Header is: {header:?}");
             let _class = decoder.take_class_type();
             let _method = decoder.take_method_type();
             let _consumer_tag = decoder.take_short_string();
@@ -209,13 +217,15 @@ impl Client {
             } else {
                 0
             };
+            decoder.next_frame();
+            // Header contains siez
             let header = decoder.take_header();
-            let x = decoder.take_till_frame_end();
-            let y = String::from_utf8(x);
-            println!("RECEIVED MESSAGE {y:?}");
+            println!("{header:?}");
+
+            let body = decoder.take_till_frame_end();
+            let string = String::from_utf8(body)?;
+            handler(string);
         }
         Ok(())
     }
 }
-
-fn fun_name() {}

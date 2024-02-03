@@ -13,6 +13,7 @@ pub enum ClassType {
 impl ClassType {
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let id = u16::from_be_bytes(bytes.try_into().expect("Falied"));
+
         match id {
             10 => Self::Connection,
             20 => Self::Channel,
@@ -20,7 +21,10 @@ impl ClassType {
             50 => Self::Queue,
             60 => Self::Basic,
             90 => Self::Transaction,
-            _ => panic!("Unsupported class type"),
+            _ => {
+                println!("ID is : {id}");
+                panic!("Oh no");
+            }
         }
     }
 }
@@ -59,7 +63,7 @@ impl ConnectionClassMethodType {
     // TODO! Generate to bytes method
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum FrameType {
     Body,
     FatalError,
@@ -70,11 +74,12 @@ pub enum FrameType {
 
 impl FrameType {
     pub fn from_octet(byte: u8) -> Self {
+        println!("Byte is: {byte:?}");
         match byte {
             1 => Self::Method,
             2 => Self::Header,
             3 => Self::Body,
-            4 => Self::Heartbeat,
+            8 => Self::Heartbeat, // Why is this 8, the spec says it should be 4
             _ => Self::FatalError,
         }
     }

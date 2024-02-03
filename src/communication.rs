@@ -87,7 +87,6 @@ pub mod decode {
         pub fn take_class_type(&self) -> ClassType {
             let offset = self.get_current_offset();
             let bytes = &self.buffer[offset..offset + size::CLASS_OR_METHOD_TYPE_SIZE];
-            println!("{bytes:?}");
             self.increment_offset_by(size::CLASS_OR_METHOD_TYPE_SIZE);
             ClassType::from_bytes(bytes)
         }
