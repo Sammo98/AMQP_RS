@@ -23,7 +23,7 @@ impl ClassType {
             90 => Self::Transaction,
             _ => {
                 println!("ID is : {id}");
-                panic!("Oh no");
+                panic!("Oh no couldn't get class type");
             }
         }
     }
