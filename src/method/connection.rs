@@ -1,9 +1,9 @@
 use crate::communication::decode::Decoder;
 use crate::communication::encode::Encoder;
 use crate::communication::Value;
-use crate::constants::{self, PROTOCOL_HEADER};
+use crate::constants::{PROTOCOL_HEADER};
 use crate::constants::{class_id, connection_method_id, frame_type};
-use crate::constants::{WITHOUT_FIELD_TYPE, WITH_FIELD_TYPE};
+use crate::constants::{WITHOUT_FIELD_TYPE};
 use std::collections::HashMap;
 pub struct ProtocolHeader {
     // Note - this isn't officially a connection method, but has be included here

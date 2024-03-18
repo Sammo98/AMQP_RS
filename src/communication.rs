@@ -1,4 +1,4 @@
-use crate::constants::{field_type, frame_type, size, FRAME_END};
+use crate::constants::{field_type, frame_type, size};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -190,7 +190,7 @@ pub mod encode {
 
     use core::panic;
 
-    use crate::common::{ClassType, FrameType};
+    
     use crate::constants::FRAME_END;
 
     use super::*;
@@ -385,14 +385,14 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::common::FrameType;
+    
 
     use super::decode::Decoder;
     use super::encode::Encoder;
     use super::Value;
     const WITHOUT_FIELD_TYPE: bool = false;
     const WITH_FIELD_TYPE: bool = true;
-    use std::cell::RefCell;
+    
 
     #[test]
     fn test_bool_translation() {
@@ -497,8 +497,8 @@ mod tests {
 
         let mut decoder = Decoder::new(&frame);
         let header = decoder.take_header();
-        let class = decoder.take_class_type();
-        let method = decoder.take_method_type();
+        let _class = decoder.take_class_type();
+        let _method = decoder.take_method_type();
 
         let properties = decoder.take_table();
         println!("Properties: {properties:?}");

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::communication::decode::Decoder;
+
 use crate::communication::encode::Encoder;
 use crate::communication::Value;
 use crate::constants::WITHOUT_FIELD_TYPE;

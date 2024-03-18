@@ -1,5 +1,6 @@
-use std::sync::Arc;
+#![allow(clippy::unused_io_amount)] // TODO
 
+use std::sync::Arc;
 mod client;
 mod common;
 mod communication;
@@ -17,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.create_queue("test_queue").await?;
     let handler = |x: String| {
         println!("Sleeping!");
-        std::thread::sleep(std::time::Duration::from_secs(150));
+        std::thread::sleep(std::time::Duration::from_secs(1));
         println!("Printing from handler: {x}");
     };
     client

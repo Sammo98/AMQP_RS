@@ -233,12 +233,12 @@ impl Client {
                             flag_index += 1;
                         }
                     }
-                    let properties = if (flags & crate::constants::properties::HEADERS) != 0 {
+                    let _properties = if (flags & crate::constants::properties::HEADERS) != 0 {
                         decoder.take_table()
                     } else {
                         HashMap::new()
                     };
-                    let properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0 {
+                    let _properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0 {
                         println!("we got a delivery mode!");
                         decoder.take_u8()
                     } else {

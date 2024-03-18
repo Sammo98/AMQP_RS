@@ -31,7 +31,7 @@ impl OpenOk {
         _ = decoder.take_class_type();
         _ = decoder.take_method_type();
 
-        let res = decoder.take_long_string();
+        let _res = decoder.take_long_string();
         Self {
             channel: header.channel,
         }
