@@ -4,6 +4,7 @@ mod client;
 mod common;
 mod communication;
 mod constants;
+mod endec;
 mod errors;
 mod method;
 mod properties;

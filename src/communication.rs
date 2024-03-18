@@ -395,17 +395,6 @@ mod tests {
     use std::cell::RefCell;
 
     #[test]
-    fn test_next_frame() {
-        let buffer = [1_u8, 1, 1, 0xCE, 2, 2, 2, 2, 0xCE];
-        let decoder = Decoder::new(&buffer);
-        let expected_start_of_next_frame = 4_usize;
-        decoder.next_frame();
-        decoder.print_remainder();
-        let actual = decoder.offset.into_inner();
-        assert_eq!(actual, expected_start_of_next_frame);
-    }
-
-    #[test]
     fn test_bool_translation() {
         let expected_bool = false;
         let encoder = Encoder::new();
