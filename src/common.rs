@@ -1,5 +1,7 @@
-use core::panic;
+use bincode::impl_borrow_decode;
+use std::sync::mpsc::channel;
 
+use bincode::{Decode, Encode};
 #[derive(Debug)]
 pub enum ClassType {
     Connection,
@@ -23,7 +25,7 @@ impl ClassType {
             90 => Self::Transaction,
             _ => {
                 println!("ID is : {id}");
-                panic!("Oh no couldn't get class type");
+                todo!("Oh no couldn't get class type");
             }
         }
     }
@@ -63,7 +65,7 @@ impl ConnectionClassMethodType {
     // TODO! Generate to bytes method
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum FrameType {
     Body,
     FatalError,
@@ -90,16 +92,57 @@ impl FrameType {
             FrameType::Header => 2,
             FrameType::Body => 3,
             FrameType::Heartbeat => 4,
-            FrameType::FatalError => panic!(),
+            FrameType::FatalError => todo!(),
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Header {
     pub frame_type: FrameType,
     pub channel: u16,
     pub size: u32,
 }
+
+impl Encode for Header {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self.frame_type {
+            FrameType::Method => 0x01_u8.encode(encoder)?,
+            FrameType::Header => 0x02_u8.encode(encoder)?,
+            FrameType::Body => 0x03_u8.encode(encoder)?,
+            FrameType::Heartbeat => 0x08_u8.encode(encoder)?,
+            FrameType::FatalError => todo!(""),
+        }
+        self.channel.encode(encoder)?;
+        self.size.encode(encoder)?;
+        Ok(())
+    }
+}
+
+impl Decode for Header {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let frame_type = match u8::decode(decoder)? {
+            0x01 => FrameType::Method,
+            0x02 => FrameType::Header,
+            0x03 => FrameType::Body,
+            0x08 => FrameType::Heartbeat,
+            _ => FrameType::FatalError,
+        };
+        let channel = u16::decode(decoder)?;
+        let size = u32::decode(decoder)?;
+        Ok(Self {
+            frame_type,
+            channel,
+            size,
+        })
+    }
+}
+
+impl_borrow_decode!(Header);
 
 impl Header {
     pub fn from_bytes(bytes: &[u8]) -> Self {

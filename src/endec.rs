@@ -1,13 +1,10 @@
-
-
-
 use bincode::error::EncodeError;
+use bincode::impl_borrow_decode;
 use bincode::{error::DecodeError, Decode, Encode};
-use bincode::{impl_borrow_decode};
 use std::ops::Deref;
 
 #[derive(Debug, Clone)]
-struct Table(Vec<(String, Field)>);
+pub struct Table(Vec<(String, Field)>);
 
 impl Deref for Table {
     type Target = Vec<(String, Field)>;
@@ -30,9 +27,18 @@ impl Table {
                     bytes.push(s.len() as u8);
                     bytes.extend_from_slice(s.as_bytes());
                 }
+                Field::LS(s) => {
+                    bytes.push('S' as u8);
+                    bytes.push(s.len() as u8);
+                    bytes.extend_from_slice(&s.as_bytes());
+                }
                 Field::T(t) => {
                     bytes.push('F' as u8);
                     bytes.extend_from_slice(&t.to_bytes());
+                }
+                Field::Bool(b) => {
+                    bytes.push('t' as u8);
+                    bytes.push(*b as u8);
                 }
             }
         }
@@ -64,7 +70,7 @@ impl Decode for Table {
         let mut parsed: usize = 0;
         while parsed < length {
             let key_length = u8::decode(decoder)?;
-            parsed += key_length as usize;
+            parsed += 1;
 
             let mut string_vec = vec![];
             for _ in 0..key_length {
@@ -79,7 +85,7 @@ impl Decode for Table {
             let val = match field_type {
                 's' => {
                     let key_length = u8::decode(decoder)?;
-                    parsed += key_length as usize;
+                    parsed += 1;
                     let mut string_vec = vec![];
                     for _ in 0..key_length {
                         string_vec.push(u8::decode(decoder)?);
@@ -88,22 +94,44 @@ impl Decode for Table {
                     let name = String::from_utf8(string_vec).unwrap();
                     Field::SS(ShortString(name))
                 }
+                'S' => {
+                    let key_length = u32::decode(decoder)?;
+                    parsed += 4;
+                    let mut string_vec = vec![];
+                    for _ in 0..key_length {
+                        string_vec.push(u8::decode(decoder)?);
+                    }
+                    parsed += string_vec.len();
+                    let name = String::from_utf8(string_vec).unwrap();
+                    Field::LS(LongString(name))
+                }
                 'F' => {
                     // This is pretty hacky, but once decoding an inner table, we have to convert back to bytes to get the length.
                     let x = Table::decode(decoder)?;
                     parsed += x.to_bytes().len();
                     Field::T(x)
                 }
-                _ => todo!(),
+                't' => {
+                    let x = bool::decode(decoder)?;
+                    parsed += 1;
+                    Field::Bool(x)
+                }
+
+                _ => {
+                    println!("{field_type:?} not supported yet");
+                    todo!();
+                }
             };
+
             table.push((name, val));
         }
+
         Ok(Self(table))
     }
 }
 
 #[derive(Debug, Clone)]
-struct ShortString(String);
+pub struct ShortString(String);
 
 impl Deref for ShortString {
     type Target = String;
@@ -117,7 +145,14 @@ impl Encode for ShortString {
         &self,
         encoder: &mut E,
     ) -> Result<(), bincode::error::EncodeError> {
-        // Make more exact, u32 then into vec and so on:
+        let ShortString(inner) = self;
+
+        (inner.len() as u8).encode(encoder)?;
+        _ = inner
+            .as_bytes()
+            .iter()
+            .map(|&x| x.encode(encoder).expect("Failed to encode string"));
+
         String::encode(&self, encoder)?;
         Ok(())
     }
@@ -128,11 +163,60 @@ impl Decode for ShortString {
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
         // Take exact, u8 then into vec and so on
-        let x: String = Decode::decode(decoder).unwrap();
-        Ok(Self(x))
+        let length = u8::decode(decoder)?;
+        let mut string_bytes = vec![];
+        for _ in 0..length {
+            let byte = u8::decode(decoder)?;
+            string_bytes.push(byte);
+        }
+        let decoded_string = String::from_utf8(string_bytes).expect("Fatal Decode Error");
+        Ok(Self(decoded_string))
+    }
+}
+#[derive(Debug, Clone)]
+pub struct LongString(pub String);
+
+impl Deref for LongString {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Encode for LongString {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        let LongString(inner) = self;
+
+        (inner.len() as u32).encode(encoder)?;
+        _ = inner
+            .as_bytes()
+            .iter()
+            .map(|&x| x.encode(encoder).expect("Failed to encode string"));
+
+        String::encode(&self, encoder)?;
+        Ok(())
     }
 }
 
+impl Decode for LongString {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let length = u32::decode(decoder)?;
+        let mut string_bytes = vec![];
+        for _ in 0..length {
+            let byte = u8::decode(decoder)?;
+            string_bytes.push(byte);
+        }
+        let decoded_string = String::from_utf8(string_bytes).expect("Fatal Decode Error");
+        Ok(Self(decoded_string))
+    }
+}
+
+impl_borrow_decode!(LongString);
 #[derive(Debug, Clone)]
 struct U32(u32);
 
@@ -185,9 +269,11 @@ impl Decode for U16 {
 // Here we need to add all fields under a common enum simply for the table.
 // we do not need to implement enc/dec directly here
 #[derive(Debug, Clone)]
-enum Field {
+pub enum Field {
     SS(ShortString),
+    LS(LongString),
     T(Table),
+    Bool(bool),
 }
 
 /////////////////////////////////////////////

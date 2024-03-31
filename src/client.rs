@@ -5,10 +5,12 @@ use crate::constants::class_id;
 use crate::constants::frame_type;
 use crate::constants::size::FRAME_MAX_SIZE;
 use crate::constants::PROTOCOL_HEADER;
+use crate::endec::LongString;
 use crate::method::basic;
 use crate::method::channel;
 use crate::method::connection;
 use crate::method::queue;
+use bincode;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -65,36 +67,34 @@ impl Client {
 
     pub async fn connect(&mut self) -> Result<()> {
         // Write protocol headero
-        println!("Trying to write prot head");
         let x = self.connection.lock().await.write(&PROTOCOL_HEADER).await?;
-        println!("{x:?}");
-        println!("Wrote protocol header");
 
         // Read Start
-        let start: connection::Start;
-        {
-            println!("Trying to read constart");
-            let buffer = self.connection.lock().await.read().await?;
-            start = connection::Start::from_frame(&buffer);
-        }
+
+        let buffer = self.connection.lock().await.read().await?;
+        let config = bincode::config::standard()
+            .with_big_endian()
+            .with_fixed_int_encoding();
+        let (start, _): (connection::Start, usize) =
+            bincode::decode_from_slice(&buffer, config).unwrap();
+        println!("Start is : {start:?}");
 
         // Write StartOk
         let start_ok: Vec<u8>;
         {
+            let LongString(locales) = &start.locales;
             start_ok = connection::StartOk::to_frame(
                 "PLAIN".into(),
                 "\0guest\0guest".into(),
-                start.locales,
+                locales.clone().into_boxed_str(),
             );
             self.connection.lock().await.write(&start_ok).await?;
-            println!("Wrote start ok ");
         }
 
         // Read Tune
         let tune: connection::Tune;
         {
             let buffer = self.connection.lock().await.read().await?;
-            println!("Read tune");
             tune = connection::Tune::from_frame(&buffer);
         }
 
@@ -238,7 +238,8 @@ impl Client {
                     } else {
                         HashMap::new()
                     };
-                    let _properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0 {
+                    let _properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0
+                    {
                         println!("we got a delivery mode!");
                         decoder.take_u8()
                     } else {
@@ -253,50 +254,6 @@ impl Client {
                     handler(string);
                 });
             }
-            // let _class = decoder.take_class_type();
-            // let _method = decoder.take_method_type();
-            // let _consumer_tag = decoder.take_short_string();
-            // let _delivery_tag = decoder.take_u64();
-            // let _redelivered = decoder.take_bool();
-            // let _exchange = decoder.take_short_string();
-            // let _routing = decoder.take_short_string();
-            // decoder.next_frame();
-            // let _header = decoder.take_header();
-            // let _class = decoder.take_class_type();
-            // let _weight = decoder.take_u16();
-            // let _length = decoder.take_u64();
-
-            // // properties - I need to learn how this works, but this is following pika logic
-            // let mut flags = 0_u64;
-            // let mut flag_index = 0_u16;
-            // loop {
-            //     let partial_flags = decoder.take_u16() as u64;
-            //     flags = flags | (partial_flags << (flag_index * 16));
-            //     if (partial_flags & 1) == 0 {
-            //         break;
-            //     } else {
-            //         flag_index += 1;
-            //     }
-            // }
-            // let properties = if (flags & crate::constants::properties::HEADERS) != 0 {
-            //     decoder.take_table()
-            // } else {
-            //     HashMap::new()
-            // };
-            // let properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0 {
-            //     println!("we got a delivery mode!");
-            //     decoder.take_u8()
-            // } else {
-            //     0
-            // };
-            // decoder.next_frame();
-            // // Header contains siez
-            // let header = decoder.take_header();
-            // println!("{header:?}");
-
-            // let body = decoder.take_till_frame_end();
-            // let string = String::from_utf8(body)?;
-            // handler(string);
         }
         Ok(())
     }
