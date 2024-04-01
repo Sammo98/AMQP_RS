@@ -1,8 +1,7 @@
 use crate::body::Body;
+use crate::body::BodyReceive;
 use crate::common::FrameType;
-use crate::communication::decode::Decoder;
-use crate::constants::class_id;
-use crate::constants::frame_type;
+use crate::common::Header;
 use crate::constants::size::FRAME_MAX_SIZE;
 use crate::constants::CONFIG;
 use crate::constants::PROTOCOL_HEADER;
@@ -15,8 +14,6 @@ use crate::method::channel;
 use crate::method::connection;
 use crate::method::queue;
 use bincode;
-use std::collections::HashMap;
-use std::env::consts::EXE_EXTENSION;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -194,7 +191,7 @@ impl Client {
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
         let test = Consume::new(
             ShortString(queue.into()),
-            ShortString("CONSUMER_TAG".into()),
+            ShortString("CONSUMER_TAG2".into()),
             Bits(vec![]),
         );
         let mut bytes = bincode::encode_to_vec(&test, CONFIG).unwrap();
@@ -206,9 +203,8 @@ impl Client {
         self.connection.lock().await.read().await?;
 
         while let Ok(buffer) = self.connection.lock().await.read().await {
+            let (header, _): (Header, usize) = bincode::decode_from_slice(&buffer, CONFIG).unwrap();
             let connection = Arc::clone(&self.connection);
-            let mut decoder = Decoder::new(&buffer);
-            let header = decoder.take_header();
             let handler = Arc::clone(&handler);
             if header.frame_type == FrameType::Heartbeat {
                 tokio::task::spawn(async move {
@@ -224,51 +220,20 @@ impl Client {
                 continue;
             } else {
                 tokio::task::spawn(async move {
-                    let mut decoder = Decoder::new(&buffer);
-                    let _ = decoder.take_header();
-                    let _class = decoder.take_class_type();
-                    let _method = decoder.take_method_type();
-                    let _consumer_tag = decoder.take_short_string();
-                    let _delivery_tag = decoder.take_u64();
-                    let _redelivered = decoder.take_bool();
-                    let _exchange = decoder.take_short_string();
-                    let _routing = decoder.take_short_string();
-                    decoder.next_frame();
-                    let _header = decoder.take_header();
-                    let _class = decoder.take_class_type();
-                    let _weight = decoder.take_u16();
-                    let _length = decoder.take_u64();
-
-                    // properties - I need to learn how this works, but this is following pika logic
-                    let mut flags = 0_u64;
-                    let mut flag_index = 0_u16;
-                    loop {
-                        let partial_flags = decoder.take_u16() as u64;
-                        flags = flags | (partial_flags << (flag_index * 16));
-                        if (partial_flags & 1) == 0 {
-                            break;
-                        } else {
-                            flag_index += 1;
-                        }
-                    }
-                    let _properties = if (flags & crate::constants::properties::HEADERS) != 0 {
-                        decoder.take_table()
-                    } else {
-                        HashMap::new()
-                    };
-                    let _properties = if (flags & crate::constants::properties::DELIVERY_MODE) != 0
-                    {
-                        println!("we got a delivery mode!");
-                        decoder.take_u8()
-                    } else {
-                        0
-                    };
-                    decoder.next_frame();
-                    // Header contains siez
-                    let header = decoder.take_header();
-                    println!("{header:?}");
-                    let body = decoder.take_till_frame_end();
-                    let string = String::from_utf8(body).expect("Failed");
+                    let mut test = buffer.split_inclusive(|&x| x == 206);
+                    let (deliver, _): (basic::Deliver, usize) =
+                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
+                    let (content_header, _): (Content, usize) =
+                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
+                    let (body, _): (BodyReceive, usize) =
+                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
+                    let message = body
+                        .content
+                        .iter()
+                        .cloned()
+                        .filter(|&x| x != 0xCE)
+                        .collect::<Vec<u8>>();
+                    let string = String::from_utf8(message).expect("Failed");
                     handler(string);
                 });
             }

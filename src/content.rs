@@ -2,9 +2,9 @@ use crate::{
     common::{FrameType, Header},
     constants::{class_id, frame_type, properties, FRAME_END},
 };
-use bincode::Encode;
+use bincode::{Decode, Encode};
 
-#[derive(Debug, Clone, Encode)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct Content {
     header: Header,
     class_type: u16,

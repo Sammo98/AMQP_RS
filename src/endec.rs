@@ -262,6 +262,17 @@ impl Encode for RawBytes {
     }
 }
 
+impl Decode for RawBytes {
+    fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let mut bytes = Vec::new();
+        while let Ok(byte) = u8::decode(decoder) {
+            bytes.push(byte);
+        }
+        Ok(Self(bytes))
+    }
+}
+impl_borrow_decode!(RawBytes);
+
 //////////////////////////////////////////////////
 // Here we need to add all fields under a common enum simply for the table.
 // we do not need to implement enc/dec directly here

@@ -1,4 +1,4 @@
-use bincode::Encode;
+use bincode::{Decode, Encode};
 
 use crate::{
     common::{FrameType, Header},
@@ -6,11 +6,17 @@ use crate::{
     endec::RawBytes,
 };
 
-#[derive(Debug, Clone, Encode)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct Body {
     header: Header,
     content: RawBytes,
     frame_end: u8,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct BodyReceive {
+    header: Header,
+    pub content: RawBytes,
 }
 
 impl Body {

@@ -1,7 +1,7 @@
 use crate::common::{FrameType, Header};
 use crate::constants::{basic_method_id, class_id};
 use crate::endec::{Bits, ShortString, Table};
-use bincode::Encode;
+use bincode::{Decode, Encode};
 
 #[derive(Debug, Clone, Encode)]
 pub struct Publish {
@@ -75,4 +75,16 @@ impl Consume {
             frame_end,
         }
     }
+}
+#[derive(Debug, Clone, Decode)]
+pub struct Deliver {
+    header: Header,
+    class_id: u16,
+    method_id: u16,
+    consumer_tag: ShortString,
+    delivery_tag: u64,
+    redelivered: bool,
+    exchange: ShortString,
+    routing: ShortString,
+    frame_end: u8,
 }

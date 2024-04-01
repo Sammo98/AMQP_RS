@@ -8,16 +8,7 @@ pub const CONFIG: Configuration<BigEndian, Fixint> = bincode::config::standard()
     .with_fixed_int_encoding();
 
 pub mod size {
-    pub const FIELD_TYPE_SIZE: usize = 1;
-    pub const U8_SIZE: usize = 1;
-    pub const U16_SIZE: usize = 2;
-    pub const U32_SIZE: usize = 4;
-    pub const U64_SIZE: usize = 8;
-    pub const BOOL_SIZE: usize = 1;
-    pub const HEADER_SIZE: usize = 7;
-    pub const CLASS_OR_METHOD_TYPE_SIZE: usize = 2;
     pub const FRAME_MAX_SIZE: usize = 4096;
-    pub const CHANNEL_AND_METHOD_SIZE: u32 = 4;
 }
 
 pub mod field_type {
@@ -108,6 +99,3 @@ pub mod properties {
     pub const APP_ID: u64 = 1 << 3;
     pub const CLUSTER_ID: u64 = 1 << 2;
 }
-
-pub const WITHOUT_FIELD_TYPE: bool = false;
-pub const WITH_FIELD_TYPE: bool = true;

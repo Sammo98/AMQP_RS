@@ -4,13 +4,10 @@ use std::sync::Arc;
 mod body;
 mod client;
 mod common;
-mod communication;
 mod constants;
 mod content;
 mod endec;
-mod errors;
 mod method;
-mod properties;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

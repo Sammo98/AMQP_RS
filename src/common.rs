@@ -1,5 +1,4 @@
 use bincode::impl_borrow_decode;
-use std::sync::mpsc::channel;
 
 use bincode::{Decode, Encode};
 #[derive(Debug)]
