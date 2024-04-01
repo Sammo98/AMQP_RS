@@ -1,23 +1,17 @@
+use crate::common::FrameType;
 use crate::common::Header;
-use crate::communication::decode::Decoder;
 use crate::communication::encode::Encoder;
 use crate::communication::Value;
+use crate::constants::class_id::CONNECTION;
+use crate::constants::connection_method_id::STARTOK;
+use crate::constants::connection_method_id::TUNEOK;
 use crate::constants::PROTOCOL_HEADER;
 use crate::constants::WITHOUT_FIELD_TYPE;
 use crate::constants::{class_id, connection_method_id, frame_type};
 use crate::endec;
+use crate::endec::{LongString, ShortString};
 use bincode::{Decode, Encode};
 use std::collections::HashMap;
-pub struct ProtocolHeader {
-    // Note - this isn't officially a connection method, but has be included here
-    // as it kicks off the connection process
-}
-
-impl ProtocolHeader {
-    pub fn to_frame() -> [u8; 8] {
-        PROTOCOL_HEADER
-    }
-}
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Start {
@@ -32,103 +26,142 @@ pub struct Start {
     frame_end: u8,
 }
 
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct StartOk {
-    _client_properties: HashMap<String, Value>,
-    _mechanism: Box<str>,
-    _response: Box<str>,
-    _locale: Box<str>,
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    client_properties: endec::Table,
+    mechanism: endec::ShortString,
+    response: endec::LongString,
+    locale: endec::ShortString,
+    frame_end: u8,
 }
 
 impl StartOk {
-    pub fn to_frame(mechanism: Box<str>, response: Box<str>, locale: Box<str>) -> Vec<u8> {
-        let mut capabilities: HashMap<String, Value> = HashMap::new();
-        capabilities.insert("authentication_failure_close".into(), Value::Bool(true));
-        capabilities.insert("basic.nack".into(), Value::Bool(true));
-        capabilities.insert("connection.blocked".into(), Value::Bool(true));
-        capabilities.insert("consumer_cancel_notify".into(), Value::Bool(true));
-        capabilities.insert("publisher_confirms".into(), Value::Bool(true));
+    pub fn new(mechanism: String, response: String, locale: String) -> Self {
+        let capabilites: endec::Table = endec::Table(vec![
+            (
+                "authentication_failure_close".into(),
+                endec::Field::Bool(true),
+            ),
+            ("basic.nack".into(), endec::Field::Bool(true)),
+            ("connection.blocked".into(), endec::Field::Bool(true)),
+            ("consumer_cancel_notify".into(), endec::Field::Bool(true)),
+            ("publisher_confirms".into(), endec::Field::Bool(true)),
+        ]);
 
-        let mut properties: HashMap<String, Value> = HashMap::new();
-        properties.insert("capabilities".into(), Value::Table(capabilities));
-        properties.insert(
-            "product".to_owned(),
-            Value::LongString("Rust AMQP Client Library".into()),
-        );
-        properties.insert("platform".into(), Value::LongString("Rust".into()));
-        let client_properties = Value::Table(properties);
-        let encoder = Encoder::new();
-        encoder.encode_value(client_properties, WITHOUT_FIELD_TYPE);
-        encoder.encode_value(Value::ShortString(mechanism), WITHOUT_FIELD_TYPE); // "PLAIN"
-        encoder.encode_value(Value::LongString(response), WITHOUT_FIELD_TYPE); // "\0guest\0guest"
-        encoder.encode_value(Value::ShortString(locale), WITHOUT_FIELD_TYPE);
-
-        encoder.build_frame(
-            frame_type::METHOD,
-            class_id::CONNECTION,
-            connection_method_id::STARTOK,
-            0,
-        )
-    }
-}
-
-pub struct Tune {
-    pub channel_max: u16,
-    pub frame_max: u32,
-    pub heartbeat: u16,
-}
-
-impl Tune {
-    pub fn from_frame(buffer: &[u8]) -> Self {
-        let mut decoder = Decoder::new(buffer);
-
-        let header = decoder.take_header();
-        println!("{header:?}");
-        _ = decoder.take_class_type();
-        _ = decoder.take_method_type();
-
-        let channel_max = decoder.take_u16();
-        let frame_max = decoder.take_u32();
-        let heartbeat = decoder.take_u16();
-
+        let client_properties: endec::Table = endec::Table(vec![
+            ("capabilities".into(), endec::Field::T(capabilites)),
+            (
+                "product".to_owned(),
+                endec::Field::LS(LongString("Rust AMQP Client Library".into())),
+            ),
+            (
+                "platform".into(),
+                endec::Field::LS(LongString("Rust".into())),
+            ),
+        ]);
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 0,
+            size: 0,
+        };
+        // Make these enums
+        let class_type = CONNECTION;
+        let method_type = STARTOK;
+        let frame_end = 0xCE;
         Self {
-            channel_max,
-            frame_max,
-            heartbeat,
+            header,
+            class_type,
+            method_type,
+            client_properties,
+            mechanism: ShortString(mechanism),
+            response: LongString(response),
+            locale: ShortString(locale),
+            frame_end,
         }
     }
 }
 
-pub struct TuneOk {}
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct Tune {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    pub channel_max: u16,
+    pub frame_max: u32,
+    pub heartbeat: u16,
+    frame_end: u8,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct TuneOk {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    channel_max: u16,
+    frame_max: u32,
+    heartbeat: u16,
+    frame_end: u8,
+}
 
 impl TuneOk {
-    pub fn to_frame(channel_max: u16, frame_max: u32, heartbeat: u16) -> Vec<u8> {
-        let encoder = Encoder::new();
-        encoder.encode_value(Value::ShortUInt(channel_max), WITHOUT_FIELD_TYPE);
-        encoder.encode_value(Value::LongUInt(frame_max), WITHOUT_FIELD_TYPE);
-        encoder.encode_value(Value::ShortUInt(heartbeat), WITHOUT_FIELD_TYPE);
-        encoder.build_frame(
-            frame_type::METHOD,
-            class_id::CONNECTION,
-            connection_method_id::TUNEOK,
-            0,
-        )
+    pub fn new(channel_max: u16, frame_max: u32, heartbeat: u16) -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 0,
+            size: 0,
+        };
+        // Make these enums
+        let class_type = CONNECTION;
+        let method_type = TUNEOK;
+        let frame_end = 0xCE;
+        Self {
+            header,
+            class_type,
+            method_type,
+            channel_max,
+            frame_max,
+            heartbeat,
+            frame_end,
+        }
     }
 }
 
-pub struct Open {}
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct Open {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    pub virtual_host: ShortString,
+    pub reserved_1: ShortString,
+    pub reserved_2: bool,
+    frame_end: u8,
+}
 
 impl Open {
-    pub fn to_frame(virtual_host: Box<str>, reserved_1: Box<str>, reserved_2: bool) -> Vec<u8> {
-        let encoder = Encoder::new();
-        encoder.encode_value(Value::ShortString(virtual_host), WITHOUT_FIELD_TYPE); // vhost
-        encoder.encode_value(Value::ShortString(reserved_1), WITHOUT_FIELD_TYPE);
-        encoder.encode_value(Value::Bool(reserved_2), WITHOUT_FIELD_TYPE);
-        encoder.build_frame(
-            frame_type::METHOD,
-            class_id::CONNECTION,
-            connection_method_id::OPEN,
-            0,
-        )
+    pub fn new(virtual_host: String, reserved_1: String, reserved_2: bool) -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 0,
+            size: 0,
+        };
+        let virtual_host = ShortString(virtual_host);
+        let reserved_1 = ShortString(reserved_1);
+        // Make these enums
+        let class_type = CONNECTION;
+        let method_type = connection_method_id::OPEN;
+        let frame_end = 0xCE;
+        Self {
+            header,
+            class_type,
+            method_type,
+            virtual_host,
+            reserved_1,
+            reserved_2,
+            frame_end,
+        }
     }
 }
 

@@ -4,7 +4,7 @@ use bincode::{error::DecodeError, Decode, Encode};
 use std::ops::Deref;
 
 #[derive(Debug, Clone)]
-pub struct Table(Vec<(String, Field)>);
+pub struct Table(pub Vec<(String, Field)>);
 
 impl Deref for Table {
     type Target = Vec<(String, Field)>;
@@ -29,7 +29,7 @@ impl Table {
                 }
                 Field::LS(s) => {
                     bytes.push('S' as u8);
-                    bytes.push(s.len() as u8);
+                    bytes.extend_from_slice(&(s.len() as u32).to_be_bytes());
                     bytes.extend_from_slice(&s.as_bytes());
                 }
                 Field::T(t) => {
@@ -131,7 +131,7 @@ impl Decode for Table {
 }
 
 #[derive(Debug, Clone)]
-pub struct ShortString(String);
+pub struct ShortString(pub String);
 
 impl Deref for ShortString {
     type Target = String;
@@ -146,14 +146,11 @@ impl Encode for ShortString {
         encoder: &mut E,
     ) -> Result<(), bincode::error::EncodeError> {
         let ShortString(inner) = self;
-
-        (inner.len() as u8).encode(encoder)?;
-        _ = inner
-            .as_bytes()
-            .iter()
-            .map(|&x| x.encode(encoder).expect("Failed to encode string"));
-
-        String::encode(&self, encoder)?;
+        let length = inner.len() as u8;
+        length.encode(encoder)?;
+        for c in inner.chars() {
+            (c as u8).encode(encoder)?;
+        }
         Ok(())
     }
 }
@@ -173,6 +170,8 @@ impl Decode for ShortString {
         Ok(Self(decoded_string))
     }
 }
+impl_borrow_decode!(ShortString);
+
 #[derive(Debug, Clone)]
 pub struct LongString(pub String);
 
@@ -189,14 +188,15 @@ impl Encode for LongString {
         encoder: &mut E,
     ) -> Result<(), bincode::error::EncodeError> {
         let LongString(inner) = self;
-
-        (inner.len() as u32).encode(encoder)?;
-        _ = inner
-            .as_bytes()
-            .iter()
-            .map(|&x| x.encode(encoder).expect("Failed to encode string"));
-
-        String::encode(&self, encoder)?;
+        let length = (inner.len() as u32).to_be_bytes();
+        println!("Lenght  is : {length:?}");
+        for x in length {
+            x.encode(encoder)?;
+        }
+        // length.encode(encoder)?;
+        for c in inner.chars() {
+            (c as u8).encode(encoder)?;
+        }
         Ok(())
     }
 }
