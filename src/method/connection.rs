@@ -1,17 +1,10 @@
 use crate::common::FrameType;
 use crate::common::Header;
-use crate::communication::encode::Encoder;
-use crate::communication::Value;
-use crate::constants::class_id::CONNECTION;
-use crate::constants::connection_method_id::STARTOK;
-use crate::constants::connection_method_id::TUNEOK;
-use crate::constants::PROTOCOL_HEADER;
-use crate::constants::WITHOUT_FIELD_TYPE;
-use crate::constants::{class_id, connection_method_id, frame_type};
+use crate::constants::class_id;
+use crate::constants::connection_method_id;
 use crate::endec;
 use crate::endec::{LongString, ShortString};
 use bincode::{Decode, Encode};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Start {
@@ -68,8 +61,8 @@ impl StartOk {
             size: 0,
         };
         // Make these enums
-        let class_type = CONNECTION;
-        let method_type = STARTOK;
+        let class_type = class_id::CONNECTION;
+        let method_type = connection_method_id::STARTOK;
         let frame_end = 0xCE;
         Self {
             header,
@@ -114,8 +107,8 @@ impl TuneOk {
             size: 0,
         };
         // Make these enums
-        let class_type = CONNECTION;
-        let method_type = TUNEOK;
+        let class_type = class_id::CONNECTION;
+        let method_type = connection_method_id::TUNEOK;
         let frame_end = 0xCE;
         Self {
             header,
@@ -150,7 +143,7 @@ impl Open {
         let virtual_host = ShortString(virtual_host);
         let reserved_1 = ShortString(reserved_1);
         // Make these enums
-        let class_type = CONNECTION;
+        let class_type = class_id::CONNECTION;
         let method_type = connection_method_id::OPEN;
         let frame_end = 0xCE;
         Self {
@@ -165,23 +158,42 @@ impl Open {
     }
 }
 
-pub struct Close {}
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct Close {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    reply_code: u16,
+    reply_text: ShortString,
+    closing_class_id: u16,
+    closing_method_id: u16,
+    frame_end: u8,
+}
 
 impl Close {
-    pub fn to_frame() -> Vec<u8> {
-        let encoder = Encoder::new();
-        encoder.encode_value(Value::ShortUInt(200), WITHOUT_FIELD_TYPE);
-        encoder.encode_value(
-            Value::ShortString("Normal Shutdown".into()),
-            WITHOUT_FIELD_TYPE,
-        );
-        encoder.encode_value(Value::ShortUInt(0), WITHOUT_FIELD_TYPE);
-        encoder.encode_value(Value::ShortUInt(0), WITHOUT_FIELD_TYPE);
-        encoder.build_frame(
-            frame_type::METHOD,
-            class_id::CONNECTION,
-            connection_method_id::CLOSE,
-            0,
-        )
+    pub fn new(
+        reply_code: u16,
+        reply_text: ShortString,
+        closing_class_id: u16,
+        closing_method_id: u16,
+    ) -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 0,
+            size: 0,
+        };
+        let class_type = class_id::CONNECTION;
+        let method_type = connection_method_id::CLOSE;
+        let frame_end = 0xCE;
+        Self {
+            header,
+            class_type,
+            method_type,
+            reply_code,
+            reply_text,
+            closing_class_id,
+            closing_method_id,
+            frame_end,
+        }
     }
 }

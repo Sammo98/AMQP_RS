@@ -74,6 +74,22 @@ pub enum FrameType {
     Method,
 }
 
+impl Encode for FrameType {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self {
+            FrameType::Body => 3.encode(encoder)?,
+            FrameType::FatalError => todo!(),
+            FrameType::Header => 2.encode(encoder)?,
+            FrameType::Heartbeat => 8.encode(encoder)?,
+            FrameType::Method => 1.encode(encoder)?,
+        }
+        Ok(())
+    }
+}
+
 impl FrameType {
     pub fn from_octet(byte: u8) -> Self {
         println!("Byte is: {byte:?}");

@@ -1,20 +1,22 @@
+use crate::body::Body;
 use crate::common::FrameType;
 use crate::communication::decode::Decoder;
-use crate::communication::encode::Encoder;
 use crate::constants::class_id;
 use crate::constants::frame_type;
 use crate::constants::size::FRAME_MAX_SIZE;
+use crate::constants::CONFIG;
 use crate::constants::PROTOCOL_HEADER;
-use crate::endec::LongString;
+use crate::content::Content;
+use crate::endec::RawBytes;
+use crate::endec::{Bits, LongString, ShortString};
 use crate::method::basic;
+use crate::method::basic::Consume;
 use crate::method::channel;
 use crate::method::connection;
-use crate::method::connection::Open;
-use crate::method::connection::StartOk;
-use crate::method::connection::TuneOk;
 use crate::method::queue;
 use bincode;
 use std::collections::HashMap;
+use std::env::consts::EXE_EXTENSION;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -73,16 +75,14 @@ impl Client {
 
         // Read Start
         let buffer = self.connection.lock().await.read().await?;
-        let config = bincode::config::standard()
-            .with_big_endian()
-            .with_fixed_int_encoding();
         let (start, _): (connection::Start, usize) =
-            bincode::decode_from_slice(&buffer, config).unwrap();
+            bincode::decode_from_slice(&buffer, CONFIG).unwrap();
 
         let LongString(locales) = &start.locales;
         // Write StartOk
-        let start_ok_test = StartOk::new("PLAIN".into(), "\0guest\0guest".into(), locales.clone());
-        let mut bytes = bincode::encode_to_vec(&start_ok_test, config).unwrap();
+        let start_ok_test =
+            connection::StartOk::new("PLAIN".into(), "\0guest\0guest".into(), locales.clone());
+        let mut bytes = bincode::encode_to_vec(&start_ok_test, CONFIG).unwrap();
         let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
         bytes.splice(3..7, frame_length);
 
@@ -91,19 +91,19 @@ impl Client {
         // Read Tune
         let buffer = self.connection.lock().await.read().await?;
         let (tune, _): (connection::Tune, usize) =
-            bincode::decode_from_slice(&buffer, config).unwrap();
+            bincode::decode_from_slice(&buffer, CONFIG).unwrap();
 
         // Write TuneOk
-        let tune_ok = TuneOk::new(tune.channel_max, tune.frame_max, tune.heartbeat);
-        let mut bytes = bincode::encode_to_vec(&tune_ok, config).unwrap();
+        let tune_ok = connection::TuneOk::new(tune.channel_max, tune.frame_max, tune.heartbeat);
+        let mut bytes = bincode::encode_to_vec(&tune_ok, CONFIG).unwrap();
         // 8 is the length of the frame excluding the header and the frame end.
         let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
         bytes.splice(3..7, frame_length);
         self.connection.lock().await.write(&bytes).await?;
 
         // Read Open
-        let open_test = Open::new("/".into(), "".into(), true);
-        let mut bytes = bincode::encode_to_vec(&open_test, config).unwrap();
+        let open_test = connection::Open::new("/".into(), "".into(), true);
+        let mut bytes = bincode::encode_to_vec(&open_test, CONFIG).unwrap();
         let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
         bytes.splice(3..7, frame_length);
         self.connection.lock().await.write(&bytes).await?;
@@ -118,11 +118,16 @@ impl Client {
         match self.channel {
             Some(_) => Ok(()),
             None => {
-                let open: Vec<u8> = channel::Open::to_frame();
-                self.connection.lock().await.write(&open).await?;
+                let open = channel::Open::new();
+                let mut bytes = bincode::encode_to_vec(&open, CONFIG).unwrap();
+                let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+                bytes.splice(3..7, frame_length);
+                self.connection.lock().await.write(&bytes).await?;
+
                 let buffer = self.connection.lock().await.read().await?;
-                let open_ok = channel::OpenOk::from_frame(&buffer);
-                self.channel = Some(open_ok.channel);
+                let (open_ok, _): (channel::OpenOk, usize) =
+                    bincode::decode_from_slice(&buffer, CONFIG).unwrap();
+                self.channel = Some(open_ok.reserved_1);
                 Ok(())
             }
         }
@@ -131,9 +136,13 @@ impl Client {
         if let None = self.channel {
             self.create_channel().await?;
         }
+        let declare =
+            queue::Declare::new(ShortString(queue_name.into()), Bits(vec![0, 0, 0, 0, 0]));
+        let mut bytes = bincode::encode_to_vec(&declare, CONFIG).unwrap();
+        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+        bytes.splice(3..7, frame_length);
 
-        let declare = queue::Declare::to_frame(queue_name, false, false, false, false, false);
-        self.connection.lock().await.write(&declare).await?;
+        self.connection.lock().await.write(&bytes).await?;
 
         // DeclareOk TODO
         _ = self.connection.lock().await.read().await?;
@@ -150,24 +159,31 @@ impl Client {
         immediate: bool,
     ) -> Result<()> {
         let mut full_buffer: Vec<u8> = Vec::new();
-        let publish = basic::Publish::to_frame(queue, exchange, mandatory, immediate);
-        full_buffer.extend_from_slice(&publish);
+        let publish_test = basic::Publish::new(
+            ShortString(exchange.into()),
+            ShortString(queue.into()),
+            Bits(vec![mandatory as u8, immediate as u8]),
+        );
+        let mut bytes = bincode::encode_to_vec(&publish_test, CONFIG).unwrap();
+        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+        bytes.splice(3..7, frame_length);
+        full_buffer.extend_from_slice(&bytes);
 
         // Content header
-        let encoder = Encoder::new();
-        let content_header = encoder.build_content_frame(
-            frame_type::HEADER,
-            class_id::BASIC,
-            self.channel.unwrap(),
-            message.len() as u64,
-        );
-        full_buffer.extend_from_slice(&content_header);
+        let content_header = Content::new(message.len() as u64);
+        let mut bytes = bincode::encode_to_vec(&content_header, CONFIG).unwrap();
+        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+        bytes.splice(3..7, frame_length);
+        full_buffer.extend_from_slice(&bytes);
 
         // body
-        let encoder = Encoder::new();
-        let body = encoder.build_body_frame(self.channel.unwrap(), message.into());
-        full_buffer.extend_from_slice(&body);
-        println!("{full_buffer:?}");
+        let mut test = Vec::new();
+        test.extend_from_slice(message.as_bytes());
+        let body_test = Body::new(RawBytes(test));
+        let mut bytes = bincode::encode_to_vec(&body_test, CONFIG).unwrap();
+        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+        bytes.splice(3..7, frame_length);
+        full_buffer.extend_from_slice(&bytes);
 
         self.connection.lock().await.write(&full_buffer).await?;
         Ok(())
@@ -176,8 +192,15 @@ impl Client {
     }
 
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let consume = basic::Consume::to_frame(queue);
-        self.connection.lock().await.write(&consume).await?;
+        let test = Consume::new(
+            ShortString(queue.into()),
+            ShortString("CONSUMER_TAG".into()),
+            Bits(vec![]),
+        );
+        let mut bytes = bincode::encode_to_vec(&test, CONFIG).unwrap();
+        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+        bytes.splice(3..7, frame_length);
+        self.connection.lock().await.write(&bytes).await?;
 
         // Consume okay!
         self.connection.lock().await.read().await?;

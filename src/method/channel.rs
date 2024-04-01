@@ -1,39 +1,43 @@
-use crate::communication::decode::Decoder;
-use crate::communication::encode::Encoder;
-use crate::communication::Value;
-use crate::constants::{channel_method_id, class_id, frame_type};
+use crate::common::{FrameType, Header};
+use crate::constants::{channel_method_id, class_id};
+use crate::endec::ShortString;
+use bincode::{Decode, Encode};
 
-pub struct Open {}
+#[derive(Debug, Clone, Encode)]
+pub struct Open {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    reserved_1: ShortString,
+    frame_end: u8,
+}
 
 impl Open {
-    pub fn to_frame() -> Vec<u8> {
-        let encoder = Encoder::new();
-        // Reserved, not sure this does anything
-        encoder.encode_value(Value::ShortString("1".into()), false);
-        encoder.build_frame(
-            frame_type::METHOD,
-            class_id::CHANNEL,
-            channel_method_id::OPEN,
-            // Todo! why does this channel have to be 1?
-            1,
-        )
-    }
-}
-
-pub struct OpenOk {
-    pub channel: u16,
-}
-
-impl OpenOk {
-    pub fn from_frame(buffer: &[u8]) -> Self {
-        let mut decoder = Decoder::new(buffer);
-        let header = decoder.take_header();
-        _ = decoder.take_class_type();
-        _ = decoder.take_method_type();
-
-        let _res = decoder.take_long_string();
+    pub fn new() -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 1,
+            size: 0,
+        };
+        let class_type = class_id::CHANNEL;
+        let method_type = channel_method_id::OPEN;
+        let frame_end = 0xCE;
         Self {
-            channel: header.channel,
+            header,
+            class_type,
+            method_type,
+            reserved_1: ShortString("1".into()),
+            frame_end,
         }
     }
+}
+
+#[derive(Debug, Clone, Decode)]
+pub struct OpenOk {
+    header: Header,
+    class_type: u16,
+    method_type: u16,
+    // Is this channel? Pika thinks so but looks like - to me
+    pub reserved_1: u16,
+    frame_end: u8,
 }

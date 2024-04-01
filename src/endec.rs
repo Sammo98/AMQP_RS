@@ -189,7 +189,6 @@ impl Encode for LongString {
     ) -> Result<(), bincode::error::EncodeError> {
         let LongString(inner) = self;
         let length = (inner.len() as u32).to_be_bytes();
-        println!("Lenght  is : {length:?}");
         for x in length {
             x.encode(encoder)?;
         }
@@ -217,55 +216,53 @@ impl Decode for LongString {
 }
 
 impl_borrow_decode!(LongString);
-#[derive(Debug, Clone)]
-struct U32(u32);
 
-impl Deref for U32 {
-    type Target = u32;
+#[derive(Debug, Clone)]
+pub struct Bits(pub Vec<u8>);
+
+impl Deref for Bits {
+    type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Encode for U32 {
+
+impl Encode for Bits {
     fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        u32::encode(&self, encoder)?;
+        let mut bit_buffer: u8 = 0b0000_0000;
+        for (index, flag) in self.iter().enumerate() {
+            match flag {
+                1 => bit_buffer |= 1 << index,
+                _ => {}
+            }
+        }
+        bit_buffer.encode(encoder)?;
         Ok(())
     }
 }
 
-impl Decode for U32 {
-    fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let x = u32::decode(decoder)?;
-        Ok(Self(x))
-    }
-}
 #[derive(Debug, Clone)]
-struct U16(u16);
+pub struct RawBytes(pub Vec<u8>);
 
-impl Deref for U16 {
-    type Target = u16;
+impl Deref for RawBytes {
+    type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Encode for U16 {
-    fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        u16::encode(&self, encoder)?;
-        Ok(())
-    }
-}
 
-impl Decode for U16 {
-    fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let x = u16::decode(decoder)?;
-        Ok(Self(x))
+impl Encode for RawBytes {
+    fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+        for byte in self.iter() {
+            byte.encode(encoder)?;
+        }
+        Ok(())
     }
 }
 
 //////////////////////////////////////////////////
-
 // Here we need to add all fields under a common enum simply for the table.
 // we do not need to implement enc/dec directly here
 #[derive(Debug, Clone)]

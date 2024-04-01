@@ -1,6 +1,11 @@
+use bincode::config::{BigEndian, Configuration, Fixint};
+
 pub const FRAME_END: u8 = 206; // xCE
 
 pub const PROTOCOL_HEADER: [u8; 8] = [65, 77, 81, 80, 0, 0, 9, 1]; // "AMQP0091"
+pub const CONFIG: Configuration<BigEndian, Fixint> = bincode::config::standard()
+    .with_big_endian()
+    .with_fixed_int_encoding();
 
 pub mod size {
     pub const FIELD_TYPE_SIZE: usize = 1;
