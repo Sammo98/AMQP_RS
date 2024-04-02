@@ -1,18 +1,14 @@
-use crate::common::{FrameType, Header};
-use crate::constants::{basic_method_id, class_id};
-use crate::endec::{Bits, ShortString, Table};
-use bincode::{Decode, Encode};
+use crate::endec::*;
 
-#[derive(Debug, Clone, Encode)]
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct Publish {
     header: Header,
-    class_id: u16,
-    method_id: u16,
+    class_id: ClassID,
+    method_id: BasicMethodId,
     reserved_1: u16,
     exchange_name: ShortString,
     routing_key: ShortString,
-    // mandatory, immediate
-    bits: Bits,
+    bits: Bits, // mandatory, immediate
     frame_end: u8,
 }
 
@@ -24,8 +20,8 @@ impl Publish {
             size: 0,
         };
         // Make these enums
-        let class_id = class_id::BASIC;
-        let method_id = basic_method_id::PUBLISH;
+        let class_id = ClassID::Basic;
+        let method_id = BasicMethodId::Publish;
         let frame_end = 0xCE;
         Self {
             header,
@@ -40,11 +36,11 @@ impl Publish {
     }
 }
 
-#[derive(Debug, Clone, Encode)]
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct Consume {
     header: Header,
-    class_id: u16,
-    method_id: u16,
+    class_id: ClassID,
+    method_id: BasicMethodId,
     reserved_1: u16,
     queue_name: ShortString,
     consumer_tag: ShortString,
@@ -60,8 +56,8 @@ impl Consume {
             channel: 1,
             size: 0,
         };
-        let class_id = class_id::BASIC;
-        let method_id = basic_method_id::CONSUME;
+        let class_id = ClassID::Basic;
+        let method_id = BasicMethodId::Consume;
         let frame_end = 0xCE;
         Self {
             header,
@@ -76,15 +72,48 @@ impl Consume {
         }
     }
 }
-#[derive(Debug, Clone, Decode)]
+#[derive(Debug, Clone, bincode::Decode)]
 pub struct Deliver {
     header: Header,
-    class_id: u16,
-    method_id: u16,
+    class_id: ClassID,
+    method_id: BasicMethodId,
     consumer_tag: ShortString,
-    delivery_tag: u64,
+    pub delivery_tag: u64,
     redelivered: bool,
     exchange: ShortString,
     routing: ShortString,
     frame_end: u8,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Ack {
+    header: Header,
+    class_id: ClassID,
+    method_id: BasicMethodId,
+    delivery_tag: u64,
+    multiple: u8,
+    frame_end: u8,
+}
+
+impl Ack {
+    pub fn new(delivery_tag: u64) -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 1,
+            size: 0,
+        };
+        let class_id = ClassID::Basic;
+        let method_id = BasicMethodId::Ack;
+        let multiple = 0;
+        let frame_end = 0xCE;
+
+        Self {
+            header,
+            class_id,
+            method_id,
+            delivery_tag,
+            multiple,
+            frame_end,
+        }
+    }
 }

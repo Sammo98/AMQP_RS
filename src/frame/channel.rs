@@ -1,13 +1,10 @@
-use crate::common::{FrameType, Header};
-use crate::constants::{channel_method_id, class_id};
-use crate::endec::ShortString;
-use bincode::{Decode, Encode};
+use crate::endec::*;
 
-#[derive(Debug, Clone, Encode)]
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct Open {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ChannelMethodID,
     reserved_1: ShortString,
     frame_end: u8,
 }
@@ -19,24 +16,24 @@ impl Open {
             channel: 1,
             size: 0,
         };
-        let class_type = class_id::CHANNEL;
-        let method_type = channel_method_id::OPEN;
+        let class_id = ClassID::Channel;
+        let method_id = ChannelMethodID::Open;
         let frame_end = 0xCE;
         Self {
             header,
-            class_type,
-            method_type,
-            reserved_1: ShortString("1".into()),
+            class_id,
+            method_id,
+            reserved_1: ShortString("".into()),
             frame_end,
         }
     }
 }
 
-#[derive(Debug, Clone, Decode)]
+#[derive(Debug, Clone, bincode::Decode)]
 pub struct OpenOk {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ChannelMethodID,
     // Is this channel? Pika thinks so but looks like - to me
     pub reserved_1: u16,
     frame_end: u8,

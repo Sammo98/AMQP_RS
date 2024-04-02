@@ -1,19 +1,6 @@
-use crate::body::Body;
-use crate::body::BodyReceive;
-use crate::common::FrameType;
-use crate::common::Header;
-use crate::constants::size::FRAME_MAX_SIZE;
-use crate::constants::CONFIG;
-use crate::constants::PROTOCOL_HEADER;
-use crate::content::Content;
-use crate::endec::RawBytes;
-use crate::endec::{Bits, LongString, ShortString};
-use crate::method::basic;
-use crate::method::basic::Consume;
-use crate::method::channel;
-use crate::method::connection;
-use crate::method::queue;
-use bincode;
+use crate::constants::{CONFIG, FRAME_MAX_SIZE, PROTOCOL_HEADER};
+use crate::endec::*;
+use crate::frame::*;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -68,7 +55,7 @@ impl Client {
     }
 
     pub async fn connect(&mut self) -> Result<()> {
-        _ = self.connection.lock().await.write(&PROTOCOL_HEADER).await?;
+        self.connection.lock().await.write(&PROTOCOL_HEADER).await?;
 
         // Read Start
         let buffer = self.connection.lock().await.read().await?;
@@ -130,7 +117,7 @@ impl Client {
         }
     }
     pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
-        if let None = self.channel {
+        if self.channel.is_none() {
             self.create_channel().await?;
         }
         let declare =
@@ -167,7 +154,7 @@ impl Client {
         full_buffer.extend_from_slice(&bytes);
 
         // Content header
-        let content_header = Content::new(message.len() as u64);
+        let content_header = content::Content::new(message.len() as u64);
         let mut bytes = bincode::encode_to_vec(&content_header, CONFIG).unwrap();
         let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
         bytes.splice(3..7, frame_length);
@@ -176,7 +163,7 @@ impl Client {
         // body
         let mut test = Vec::new();
         test.extend_from_slice(message.as_bytes());
-        let body_test = Body::new(RawBytes(test));
+        let body_test = body::Body::new(RawBytes(test));
         let mut bytes = bincode::encode_to_vec(&body_test, CONFIG).unwrap();
         let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
         bytes.splice(3..7, frame_length);
@@ -189,7 +176,7 @@ impl Client {
     }
 
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let test = Consume::new(
+        let test = basic::Consume::new(
             ShortString(queue.into()),
             ShortString("CONSUMER_TAG2".into()),
             Bits(vec![]),
@@ -223,9 +210,9 @@ impl Client {
                     let mut test = buffer.split_inclusive(|&x| x == 206);
                     let (deliver, _): (basic::Deliver, usize) =
                         bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
-                    let (content_header, _): (Content, usize) =
+                    let (content_header, _): (content::Content, usize) =
                         bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
-                    let (body, _): (BodyReceive, usize) =
+                    let (body, _): (body::BodyReceive, usize) =
                         bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
                     let message = body
                         .content
@@ -235,6 +222,17 @@ impl Client {
                         .collect::<Vec<u8>>();
                     let string = String::from_utf8(message).expect("Failed");
                     handler(string);
+                    let ack = basic::Ack::new(deliver.delivery_tag);
+                    let mut bytes = bincode::encode_to_vec(&ack, CONFIG).unwrap();
+                    let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
+                    bytes.splice(3..7, frame_length);
+                    connection
+                        .lock()
+                        .await
+                        .write(&bytes)
+                        .await
+                        .expect("Failed to ack");
+                    println!("Ack sent!");
                 });
             }
         }

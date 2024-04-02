@@ -1,9 +1,8 @@
 use bincode::{Decode, Encode};
 
 use crate::{
-    common::{FrameType, Header},
     constants::FRAME_END,
-    endec::RawBytes,
+    endec::{FrameType, Header, RawBytes},
 };
 
 #[derive(Debug, Clone, Encode, Decode)]

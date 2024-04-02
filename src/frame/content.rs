@@ -1,13 +1,11 @@
-use crate::{
-    common::{FrameType, Header},
-    constants::{class_id, frame_type, properties, FRAME_END},
-};
+use crate::constants::FRAME_END;
+use crate::endec::{ClassID, FrameType, Header};
 use bincode::{Decode, Encode};
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Content {
     header: Header,
-    class_type: u16,
+    class_id: ClassID,
     weight: u16,
     size: u64,
     properties: u16,
@@ -21,12 +19,12 @@ impl Content {
             channel: 1,
             size: 0,
         };
-        let class_type = class_id::BASIC;
+        let class_id = ClassID::Basic;
         let weight = 0;
         let properties = 0;
         Self {
             header,
-            class_type,
+            class_id,
             weight,
             size,
             properties,

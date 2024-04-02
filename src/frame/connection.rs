@@ -1,59 +1,48 @@
-use crate::common::FrameType;
-use crate::common::Header;
-use crate::constants::class_id;
-use crate::constants::connection_method_id;
-use crate::endec;
-use crate::endec::{LongString, ShortString};
+use crate::endec::*;
 use bincode::{Decode, Encode};
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Start {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
     version_major: u8,
     version_minor: u8,
-    server_properties: endec::Table,
-    pub mechanisms: endec::LongString,
-    pub locales: endec::LongString,
+    server_properties: Table,
+    pub mechanisms: LongString,
+    pub locales: LongString,
     frame_end: u8,
 }
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct StartOk {
     header: Header,
-    class_type: u16,
-    method_type: u16,
-    client_properties: endec::Table,
-    mechanism: endec::ShortString,
-    response: endec::LongString,
-    locale: endec::ShortString,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
+    client_properties: Table,
+    mechanism: ShortString,
+    response: LongString,
+    locale: ShortString,
     frame_end: u8,
 }
 
 impl StartOk {
     pub fn new(mechanism: String, response: String, locale: String) -> Self {
-        let capabilites: endec::Table = endec::Table(vec![
-            (
-                "authentication_failure_close".into(),
-                endec::Field::Bool(true),
-            ),
-            ("basic.nack".into(), endec::Field::Bool(true)),
-            ("connection.blocked".into(), endec::Field::Bool(true)),
-            ("consumer_cancel_notify".into(), endec::Field::Bool(true)),
-            ("publisher_confirms".into(), endec::Field::Bool(true)),
+        let capabilites: Table = Table(vec![
+            ("authentication_failure_close".into(), Field::Bool(true)),
+            ("basic.nack".into(), Field::Bool(true)),
+            ("connection.blocked".into(), Field::Bool(true)),
+            ("consumer_cancel_notify".into(), Field::Bool(true)),
+            ("publisher_confirms".into(), Field::Bool(true)),
         ]);
 
-        let client_properties: endec::Table = endec::Table(vec![
-            ("capabilities".into(), endec::Field::T(capabilites)),
+        let client_properties: Table = Table(vec![
+            ("capabilities".into(), Field::T(capabilites)),
             (
                 "product".to_owned(),
-                endec::Field::LS(LongString("Rust AMQP Client Library".into())),
+                Field::LS(LongString("Rust AMQP Client Library".into())),
             ),
-            (
-                "platform".into(),
-                endec::Field::LS(LongString("Rust".into())),
-            ),
+            ("platform".into(), Field::LS(LongString("Rust".into()))),
         ]);
         let header = Header {
             frame_type: FrameType::Method,
@@ -61,13 +50,13 @@ impl StartOk {
             size: 0,
         };
         // Make these enums
-        let class_type = class_id::CONNECTION;
-        let method_type = connection_method_id::STARTOK;
+        let class_id = ClassID::Connection;
+        let method_id = ConnectionMethodID::StartOk;
         let frame_end = 0xCE;
         Self {
             header,
-            class_type,
-            method_type,
+            class_id,
+            method_id,
             client_properties,
             mechanism: ShortString(mechanism),
             response: LongString(response),
@@ -80,8 +69,8 @@ impl StartOk {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Tune {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
     pub channel_max: u16,
     pub frame_max: u32,
     pub heartbeat: u16,
@@ -91,8 +80,8 @@ pub struct Tune {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct TuneOk {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
     channel_max: u16,
     frame_max: u32,
     heartbeat: u16,
@@ -107,13 +96,13 @@ impl TuneOk {
             size: 0,
         };
         // Make these enums
-        let class_type = class_id::CONNECTION;
-        let method_type = connection_method_id::TUNEOK;
+        let class_id = ClassID::Connection;
+        let method_id = ConnectionMethodID::TuneOk;
         let frame_end = 0xCE;
         Self {
             header,
-            class_type,
-            method_type,
+            class_id,
+            method_id,
             channel_max,
             frame_max,
             heartbeat,
@@ -125,8 +114,8 @@ impl TuneOk {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Open {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
     pub virtual_host: ShortString,
     pub reserved_1: ShortString,
     pub reserved_2: bool,
@@ -143,13 +132,13 @@ impl Open {
         let virtual_host = ShortString(virtual_host);
         let reserved_1 = ShortString(reserved_1);
         // Make these enums
-        let class_type = class_id::CONNECTION;
-        let method_type = connection_method_id::OPEN;
+        let class_id = ClassID::Connection;
+        let method_id = ConnectionMethodID::Open;
         let frame_end = 0xCE;
         Self {
             header,
-            class_type,
-            method_type,
+            class_id,
+            method_id,
             virtual_host,
             reserved_1,
             reserved_2,
@@ -161,8 +150,8 @@ impl Open {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Close {
     header: Header,
-    class_type: u16,
-    method_type: u16,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
     reply_code: u16,
     reply_text: ShortString,
     closing_class_id: u16,
@@ -182,13 +171,13 @@ impl Close {
             channel: 0,
             size: 0,
         };
-        let class_type = class_id::CONNECTION;
-        let method_type = connection_method_id::CLOSE;
+        let class_id = ClassID::Connection;
+        let method_id = ConnectionMethodID::Close;
         let frame_end = 0xCE;
         Self {
             header,
-            class_type,
-            method_type,
+            class_id,
+            method_id,
             reply_code,
             reply_text,
             closing_class_id,

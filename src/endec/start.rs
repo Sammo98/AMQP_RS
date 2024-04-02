@@ -1,7 +1,9 @@
-use bincode::error::EncodeError;
 use bincode::impl_borrow_decode;
 use bincode::{error::DecodeError, Decode, Encode};
 use std::ops::Deref;
+
+use crate::endec::long_string::LongString;
+use crate::endec::ShortString;
 
 #[derive(Debug, Clone)]
 pub struct Table(pub Vec<(String, Field)>);
@@ -23,21 +25,21 @@ impl Table {
 
             match value {
                 Field::SS(s) => {
-                    bytes.push('s' as u8);
+                    bytes.push(b's');
                     bytes.push(s.len() as u8);
                     bytes.extend_from_slice(s.as_bytes());
                 }
                 Field::LS(s) => {
-                    bytes.push('S' as u8);
+                    bytes.push(b'S');
                     bytes.extend_from_slice(&(s.len() as u32).to_be_bytes());
-                    bytes.extend_from_slice(&s.as_bytes());
+                    bytes.extend_from_slice(s.as_bytes());
                 }
                 Field::T(t) => {
-                    bytes.push('F' as u8);
+                    bytes.push(b'F');
                     bytes.extend_from_slice(&t.to_bytes());
                 }
                 Field::Bool(b) => {
-                    bytes.push('t' as u8);
+                    bytes.push(b't');
                     bytes.push(*b as u8);
                 }
             }
@@ -129,149 +131,6 @@ impl Decode for Table {
         Ok(Self(table))
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct ShortString(pub String);
-
-impl Deref for ShortString {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl Encode for ShortString {
-    fn encode<E: bincode::enc::Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), bincode::error::EncodeError> {
-        let ShortString(inner) = self;
-        let length = inner.len() as u8;
-        length.encode(encoder)?;
-        for c in inner.chars() {
-            (c as u8).encode(encoder)?;
-        }
-        Ok(())
-    }
-}
-
-impl Decode for ShortString {
-    fn decode<D: bincode::de::Decoder>(
-        decoder: &mut D,
-    ) -> Result<Self, bincode::error::DecodeError> {
-        // Take exact, u8 then into vec and so on
-        let length = u8::decode(decoder)?;
-        let mut string_bytes = vec![];
-        for _ in 0..length {
-            let byte = u8::decode(decoder)?;
-            string_bytes.push(byte);
-        }
-        let decoded_string = String::from_utf8(string_bytes).expect("Fatal Decode Error");
-        Ok(Self(decoded_string))
-    }
-}
-impl_borrow_decode!(ShortString);
-
-#[derive(Debug, Clone)]
-pub struct LongString(pub String);
-
-impl Deref for LongString {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl Encode for LongString {
-    fn encode<E: bincode::enc::Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), bincode::error::EncodeError> {
-        let LongString(inner) = self;
-        let length = (inner.len() as u32).to_be_bytes();
-        for x in length {
-            x.encode(encoder)?;
-        }
-        // length.encode(encoder)?;
-        for c in inner.chars() {
-            (c as u8).encode(encoder)?;
-        }
-        Ok(())
-    }
-}
-
-impl Decode for LongString {
-    fn decode<D: bincode::de::Decoder>(
-        decoder: &mut D,
-    ) -> Result<Self, bincode::error::DecodeError> {
-        let length = u32::decode(decoder)?;
-        let mut string_bytes = vec![];
-        for _ in 0..length {
-            let byte = u8::decode(decoder)?;
-            string_bytes.push(byte);
-        }
-        let decoded_string = String::from_utf8(string_bytes).expect("Fatal Decode Error");
-        Ok(Self(decoded_string))
-    }
-}
-
-impl_borrow_decode!(LongString);
-
-#[derive(Debug, Clone)]
-pub struct Bits(pub Vec<u8>);
-
-impl Deref for Bits {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Encode for Bits {
-    fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        let mut bit_buffer: u8 = 0b0000_0000;
-        for (index, flag) in self.iter().enumerate() {
-            match flag {
-                1 => bit_buffer |= 1 << index,
-                _ => {}
-            }
-        }
-        bit_buffer.encode(encoder)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RawBytes(pub Vec<u8>);
-
-impl Deref for RawBytes {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Encode for RawBytes {
-    fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        for byte in self.iter() {
-            byte.encode(encoder)?;
-        }
-        Ok(())
-    }
-}
-
-impl Decode for RawBytes {
-    fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let mut bytes = Vec::new();
-        while let Ok(byte) = u8::decode(decoder) {
-            bytes.push(byte);
-        }
-        Ok(Self(bytes))
-    }
-}
-impl_borrow_decode!(RawBytes);
 
 //////////////////////////////////////////////////
 // Here we need to add all fields under a common enum simply for the table.
