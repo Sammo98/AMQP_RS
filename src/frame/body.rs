@@ -1,21 +1,22 @@
-use bincode::{Decode, Encode};
+use crate::endec::*;
 
-use crate::{
-    constants::FRAME_END,
-    endec::{FrameType, Header, RawBytes},
-};
-
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Body {
     header: Header,
     content: RawBytes,
     frame_end: u8,
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct BodyReceive {
     header: Header,
-    pub content: RawBytes,
+    content: RawBytes,
+}
+
+impl BodyReceive {
+    pub fn inner(self) -> Vec<u8> {
+        self.content.0
+    }
 }
 
 impl Body {

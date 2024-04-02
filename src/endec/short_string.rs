@@ -1,18 +1,14 @@
-use bincode::impl_borrow_decode;
-use bincode::{Decode, Encode};
-use std::ops::Deref;
-
 #[derive(Debug, Clone)]
 pub struct ShortString(pub String);
 
-impl Deref for ShortString {
+impl std::ops::Deref for ShortString {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Encode for ShortString {
+impl bincode::Encode for ShortString {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -27,7 +23,7 @@ impl Encode for ShortString {
     }
 }
 
-impl Decode for ShortString {
+impl bincode::Decode for ShortString {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -42,4 +38,4 @@ impl Decode for ShortString {
         Ok(Self(decoded_string))
     }
 }
-impl_borrow_decode!(ShortString);
+bincode::impl_borrow_decode!(ShortString);

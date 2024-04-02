@@ -1,8 +1,6 @@
-use crate::constants::FRAME_END;
-use crate::endec::{ClassID, FrameType, Header};
-use bincode::{Decode, Encode};
+use crate::endec::*;
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Content {
     header: Header,
     class_id: ClassID,

@@ -1,18 +1,14 @@
-use bincode::impl_borrow_decode;
-use bincode::{Decode, Encode};
-use std::ops::Deref;
-
 #[derive(Debug, Clone)]
 pub struct LongString(pub String);
 
-impl Deref for LongString {
+impl std::ops::Deref for LongString {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Encode for LongString {
+impl bincode::Encode for LongString {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -30,7 +26,7 @@ impl Encode for LongString {
     }
 }
 
-impl Decode for LongString {
+impl bincode::Decode for LongString {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -45,4 +41,4 @@ impl Decode for LongString {
     }
 }
 
-impl_borrow_decode!(LongString);
+bincode::impl_borrow_decode!(LongString);

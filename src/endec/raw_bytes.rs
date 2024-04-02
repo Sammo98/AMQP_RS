@@ -1,11 +1,7 @@
-use bincode::impl_borrow_decode;
-use bincode::{Decode, Encode};
-use std::ops::Deref;
-
 #[derive(Debug, Clone)]
 pub struct RawBytes(pub Vec<u8>);
 
-impl Deref for RawBytes {
+impl std::ops::Deref for RawBytes {
     type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
@@ -13,7 +9,7 @@ impl Deref for RawBytes {
     }
 }
 
-impl Encode for RawBytes {
+impl bincode::Encode for RawBytes {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -25,7 +21,7 @@ impl Encode for RawBytes {
     }
 }
 
-impl Decode for RawBytes {
+impl bincode::Decode for RawBytes {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -36,4 +32,4 @@ impl Decode for RawBytes {
         Ok(Self(bytes))
     }
 }
-impl_borrow_decode!(RawBytes);
+bincode::impl_borrow_decode!(RawBytes);

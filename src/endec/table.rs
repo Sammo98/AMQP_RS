@@ -1,14 +1,9 @@
-use bincode::impl_borrow_decode;
-use bincode::{error::DecodeError, Decode, Encode};
-use std::ops::Deref;
-
-use crate::endec::long_string::LongString;
-use crate::endec::ShortString;
+use crate::endec::{LongString, ShortString};
 
 #[derive(Debug, Clone)]
 pub struct Table(pub Vec<(String, Field)>);
 
-impl Deref for Table {
+impl std::ops::Deref for Table {
     type Target = Vec<(String, Field)>;
 
     fn deref(&self) -> &Self::Target {
@@ -50,9 +45,9 @@ impl Table {
     }
 }
 
-impl_borrow_decode!(Table);
+bincode::impl_borrow_decode!(Table);
 
-impl Encode for Table {
+impl bincode::Encode for Table {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -65,8 +60,10 @@ impl Encode for Table {
     }
 }
 
-impl Decode for Table {
-    fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl bincode::Decode for Table {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
         let length = u32::decode(decoder)? as usize;
         let mut table = vec![];
         let mut parsed: usize = 0;
@@ -151,7 +148,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_table() {
-        #[derive(Debug, Encode, Decode)]
+        #[derive(Debug, bincode::Encode, bincode::Decode)]
         struct TableTest {
             inner: Table,
         }

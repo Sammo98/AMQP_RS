@@ -22,7 +22,7 @@ impl Declare {
         };
         let class_id = ClassID::Queue;
         let method_id = QueueMethodId::Declare;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -34,4 +34,15 @@ impl Declare {
             frame_end,
         }
     }
+}
+
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct DeclareOk {
+    _header: Header,
+    _class_id: ClassID,
+    _method_id: QueueMethodId,
+    _queue_name: ShortString,
+    _message_count: u32,
+    _consumer_count: u32,
+    _frame_end: u8,
 }

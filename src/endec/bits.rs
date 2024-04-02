@@ -1,10 +1,7 @@
-use bincode::Encode;
-use std::ops::Deref;
-
 #[derive(Debug, Clone)]
 pub struct Bits(pub Vec<u8>);
 
-impl Deref for Bits {
+impl std::ops::Deref for Bits {
     type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
@@ -12,7 +9,7 @@ impl Deref for Bits {
     }
 }
 
-impl Encode for Bits {
+impl bincode::Encode for Bits {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,

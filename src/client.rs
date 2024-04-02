@@ -1,17 +1,14 @@
-use crate::constants::{CONFIG, FRAME_MAX_SIZE, PROTOCOL_HEADER};
-use crate::endec::*;
-use crate::frame::*;
-use std::error::Error;
-use std::sync::Arc;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::io::ReadHalf;
-use tokio::io::WriteHalf;
-use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use crate::{endec::*, frame::*};
+use std::{error::Error, sync::Arc};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
+    net::TcpStream,
+    sync::Mutex,
+};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
-type Handler = Arc<dyn Fn(String) + Send + Sync>;
+type Handler = Arc<dyn Fn(&[u8]) + Send + Sync>;
+const FRAME_MAX_SIZE: usize = 4096;
 
 struct TcpConnection {
     reader: ReadHalf<TcpStream>,
@@ -54,47 +51,46 @@ impl Client {
         }
     }
 
+    pub async fn close(&mut self) -> Result<()> {
+        let close = connection::Close::new(0, ShortString("a".into()), 10, 50);
+        let bytes = encode_frame(&close).unwrap();
+        self.connection.lock().await.write(&bytes).await?;
+        Ok(())
+    }
+
     pub async fn connect(&mut self) -> Result<()> {
-        self.connection.lock().await.write(&PROTOCOL_HEADER).await?;
+        let protocol_header = connection::ProtocolHeader::new();
+        let bytes = encode_frame_static(&protocol_header).unwrap();
+        self.connection.lock().await.write(&bytes).await?;
 
         // Read Start
         let buffer = self.connection.lock().await.read().await?;
-        let (start, _): (connection::Start, usize) =
-            bincode::decode_from_slice(&buffer, CONFIG).unwrap();
-
+        let start: connection::Start = decode_frame(&buffer).unwrap();
         let LongString(locales) = &start.locales;
+
         // Write StartOk
         let start_ok_test =
             connection::StartOk::new("PLAIN".into(), "\0guest\0guest".into(), locales.clone());
-        let mut bytes = bincode::encode_to_vec(&start_ok_test, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
-
+        let bytes = encode_frame(start_ok_test).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
         // Read Tune
         let buffer = self.connection.lock().await.read().await?;
-        let (tune, _): (connection::Tune, usize) =
-            bincode::decode_from_slice(&buffer, CONFIG).unwrap();
+        let tune: connection::Tune = decode_frame(&buffer).unwrap();
 
         // Write TuneOk
         let tune_ok = connection::TuneOk::new(tune.channel_max, tune.frame_max, tune.heartbeat);
-        let mut bytes = bincode::encode_to_vec(&tune_ok, CONFIG).unwrap();
-        // 8 is the length of the frame excluding the header and the frame end.
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let bytes = encode_frame(tune_ok).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
         // Read Open
         let open_test = connection::Open::new("/".into(), "".into(), true);
-        let mut bytes = bincode::encode_to_vec(&open_test, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let bytes = encode_frame(open_test).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
         // OpenOk TODO
-        _ = self.connection.lock().await.read().await?;
-
+        let buffer = self.connection.lock().await.read().await?;
+        let _open_ok: connection::OpenOk = decode_frame(&buffer).unwrap();
         Ok(())
     }
 
@@ -103,15 +99,12 @@ impl Client {
             Some(_) => Ok(()),
             None => {
                 let open = channel::Open::new();
-                let mut bytes = bincode::encode_to_vec(&open, CONFIG).unwrap();
-                let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-                bytes.splice(3..7, frame_length);
+                let bytes = encode_frame(&open).unwrap();
                 self.connection.lock().await.write(&bytes).await?;
 
                 let buffer = self.connection.lock().await.read().await?;
-                let (open_ok, _): (channel::OpenOk, usize) =
-                    bincode::decode_from_slice(&buffer, CONFIG).unwrap();
-                self.channel = Some(open_ok.reserved_1);
+                let open_ok: channel::OpenOk = decode_frame(&buffer).unwrap();
+                self.channel = Some(open_ok.reserved_1); // TODO this is always 0, where do i get the channel
                 Ok(())
             }
         }
@@ -122,15 +115,11 @@ impl Client {
         }
         let declare =
             queue::Declare::new(ShortString(queue_name.into()), Bits(vec![0, 0, 0, 0, 0]));
-        let mut bytes = bincode::encode_to_vec(&declare, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
-
+        let bytes = encode_frame(declare).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
-        // DeclareOk TODO
-        _ = self.connection.lock().await.read().await?;
-
+        let buffer = self.connection.lock().await.read().await?;
+        let _declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
         Ok(())
     }
 
@@ -143,30 +132,24 @@ impl Client {
         immediate: bool,
     ) -> Result<()> {
         let mut full_buffer: Vec<u8> = Vec::new();
-        let publish_test = basic::Publish::new(
+        let publish = basic::Publish::new(
             ShortString(exchange.into()),
             ShortString(queue.into()),
             Bits(vec![mandatory as u8, immediate as u8]),
         );
-        let mut bytes = bincode::encode_to_vec(&publish_test, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let bytes = encode_frame(&publish).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
         // Content header
         let content_header = content::Content::new(message.len() as u64);
-        let mut bytes = bincode::encode_to_vec(&content_header, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let bytes = encode_frame(&content_header).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
         // body
-        let mut test = Vec::new();
-        test.extend_from_slice(message.as_bytes());
-        let body_test = body::Body::new(RawBytes(test));
-        let mut bytes = bincode::encode_to_vec(&body_test, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let mut message_bytes = Vec::new();
+        message_bytes.extend_from_slice(message.as_bytes());
+        let body = body::Body::new(RawBytes(message_bytes));
+        let bytes = encode_frame(&body).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
         self.connection.lock().await.write(&full_buffer).await?;
@@ -176,21 +159,20 @@ impl Client {
     }
 
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let test = basic::Consume::new(
+        let consume = basic::Consume::new(
             ShortString(queue.into()),
             ShortString("CONSUMER_TAG2".into()),
             Bits(vec![]),
         );
-        let mut bytes = bincode::encode_to_vec(&test, CONFIG).unwrap();
-        let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-        bytes.splice(3..7, frame_length);
+        let bytes = encode_frame(&consume).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
-        // Consume okay!
-        self.connection.lock().await.read().await?;
+        // ConsumeOk
+        let buffer = self.connection.lock().await.read().await?;
+        let _consume_ok: basic::ConsumeOk = decode_frame(&buffer).unwrap();
 
         while let Ok(buffer) = self.connection.lock().await.read().await {
-            let (header, _): (Header, usize) = bincode::decode_from_slice(&buffer, CONFIG).unwrap();
+            let header: Header = decode_frame(&buffer).unwrap();
             let connection = Arc::clone(&self.connection);
             let handler = Arc::clone(&handler);
             if header.frame_type == FrameType::Heartbeat {
@@ -207,25 +189,15 @@ impl Client {
                 continue;
             } else {
                 tokio::task::spawn(async move {
-                    let mut test = buffer.split_inclusive(|&x| x == 206);
-                    let (deliver, _): (basic::Deliver, usize) =
-                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
-                    let (content_header, _): (content::Content, usize) =
-                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
-                    let (body, _): (body::BodyReceive, usize) =
-                        bincode::decode_from_slice(test.next().unwrap(), CONFIG).unwrap();
-                    let message = body
-                        .content
-                        .iter()
-                        .cloned()
-                        .filter(|&x| x != 0xCE)
-                        .collect::<Vec<u8>>();
-                    let string = String::from_utf8(message).expect("Failed");
-                    handler(string);
+                    let mut frames = buffer.split_inclusive(|&x| x == FRAME_END);
+                    let deliver: basic::Deliver = decode_frame(frames.next().unwrap()).unwrap();
+                    let _content_header: content::Content =
+                        decode_frame(frames.next().unwrap()).unwrap();
+                    let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
+                    handler(&body.inner());
                     let ack = basic::Ack::new(deliver.delivery_tag);
-                    let mut bytes = bincode::encode_to_vec(&ack, CONFIG).unwrap();
-                    let frame_length = ((bytes.len() - 8) as u32).to_be_bytes();
-                    bytes.splice(3..7, frame_length);
+                    let bytes = encode_frame(&ack).unwrap();
+                    // TODO sort out connection, this lock has contention from the constant polling
                     connection
                         .lock()
                         .await

@@ -5,7 +5,7 @@ pub mod long_string;
 pub mod method;
 pub mod raw_bytes;
 pub mod short_string;
-pub mod start;
+pub mod table;
 
 pub use bits::Bits;
 pub use class::ClassID;
@@ -14,7 +14,7 @@ pub use long_string::LongString;
 pub use method::{BasicMethodId, ChannelMethodID, ConnectionMethodID, QueueMethodId};
 pub use raw_bytes::RawBytes;
 pub use short_string::ShortString;
-pub use start::{Field, Table};
+pub use table::{Field, Table};
 
 const CONFIG: bincode::config::Configuration<bincode::config::BigEndian, bincode::config::Fixint> =
     bincode::config::standard()
@@ -26,12 +26,20 @@ const LENGTH_ADJUSTMENT: usize = 8;
 
 const SIZE_RANGE: std::ops::Range<usize> = 3..7;
 
+pub const FRAME_END: u8 = 0xCE;
+
 pub fn encode_frame<E: bincode::enc::Encode>(
     val: E,
 ) -> Result<Vec<u8>, bincode::error::EncodeError> {
     let mut bytes = bincode::encode_to_vec(&val, CONFIG)?;
     let frame_length = ((bytes.len() - LENGTH_ADJUSTMENT) as u32).to_be_bytes();
     bytes.splice(SIZE_RANGE, frame_length);
+    Ok(bytes)
+}
+pub fn encode_frame_static<E: bincode::enc::Encode>(
+    val: E,
+) -> Result<Vec<u8>, bincode::error::EncodeError> {
+    let bytes = bincode::encode_to_vec(&val, CONFIG)?;
     Ok(bytes)
 }
 

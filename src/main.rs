@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 mod client;
-mod constants;
 mod endec;
 mod frame;
 
@@ -10,15 +9,18 @@ mod frame;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = crate::client::Client::new("127.0.0.1:5672").await;
     client.connect().await?;
-    client.create_queue("test_queue").await?;
+    client.create_queue("test_queue").await?; // This calls open channel, not sure about that
+
     client
-        .send_message("Hello World!", "test_queue", "", false, false)
+        .send_message("WAGWAN", "my_queue", "", false, false)
         .await?;
-    // let handler = |x: String| {
-    //     println!("Printing from handler: {x}");
-    // };
-    // client
-    //     .consume_on_queue("test_queue", Arc::new(handler))
-    //     .await?;
+    let handler = |x: &[u8]| {
+        println!("Printing from handler: {x:?}");
+    };
+    client
+        .consume_on_queue("test_queue", Arc::new(handler))
+        .await?;
+
+    client.close().await?;
     Ok(())
 }

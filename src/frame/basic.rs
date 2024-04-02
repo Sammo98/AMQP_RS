@@ -22,7 +22,7 @@ impl Publish {
         // Make these enums
         let class_id = ClassID::Basic;
         let method_id = BasicMethodId::Publish;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -58,7 +58,7 @@ impl Consume {
         };
         let class_id = ClassID::Basic;
         let method_id = BasicMethodId::Consume;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -72,6 +72,15 @@ impl Consume {
         }
     }
 }
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct ConsumeOk {
+    header: Header,
+    class_id: ClassID,
+    method_id: BasicMethodId,
+    consumer_tag: ShortString,
+    frame_end: u8,
+}
+
 #[derive(Debug, Clone, bincode::Decode)]
 pub struct Deliver {
     header: Header,
@@ -105,7 +114,7 @@ impl Ack {
         let class_id = ClassID::Basic;
         let method_id = BasicMethodId::Ack;
         let multiple = 0;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
 
         Self {
             header,

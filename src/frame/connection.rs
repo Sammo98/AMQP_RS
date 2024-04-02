@@ -1,7 +1,33 @@
 use crate::endec::*;
-use bincode::{Decode, Encode};
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+pub struct ProtocolHeader {
+    a: u8,
+    m: u8,
+    q: u8,
+    p: u8,
+    zero: u8,
+    major: u8,
+    minor: u8,
+    revision: u8,
+}
+
+impl ProtocolHeader {
+    pub fn new() -> Self {
+        Self {
+            a: b'A',
+            m: b'M',
+            q: b'Q',
+            p: b'P',
+            zero: 0,
+            major: 0,
+            minor: 9,
+            revision: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Start {
     header: Header,
     class_id: ClassID,
@@ -14,7 +40,7 @@ pub struct Start {
     frame_end: u8,
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct StartOk {
     header: Header,
     class_id: ClassID,
@@ -52,7 +78,7 @@ impl StartOk {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::StartOk;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -66,7 +92,7 @@ impl StartOk {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Tune {
     header: Header,
     class_id: ClassID,
@@ -77,7 +103,7 @@ pub struct Tune {
     frame_end: u8,
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct TuneOk {
     header: Header,
     class_id: ClassID,
@@ -98,7 +124,7 @@ impl TuneOk {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::TuneOk;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -111,7 +137,7 @@ impl TuneOk {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Open {
     header: Header,
     class_id: ClassID,
@@ -134,7 +160,7 @@ impl Open {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::Open;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,
@@ -147,7 +173,16 @@ impl Open {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct OpenOk {
+    header: Header,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
+    reserved_1: ShortString,
+    frame_end: u8,
+}
+
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Close {
     header: Header,
     class_id: ClassID,
@@ -173,7 +208,7 @@ impl Close {
         };
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::Close;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,

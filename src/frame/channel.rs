@@ -18,7 +18,7 @@ impl Open {
         };
         let class_id = ClassID::Channel;
         let method_id = ChannelMethodID::Open;
-        let frame_end = 0xCE;
+        let frame_end = FRAME_END;
         Self {
             header,
             class_id,

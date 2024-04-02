@@ -1,6 +1,3 @@
-use bincode::impl_borrow_decode;
-use bincode::{Decode, Encode};
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum FrameType {
     Body,
@@ -10,7 +7,7 @@ pub enum FrameType {
     Method,
 }
 
-impl Encode for FrameType {
+impl bincode::Encode for FrameType {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -33,7 +30,7 @@ pub struct Header {
     pub size: u32,
 }
 
-impl Encode for Header {
+impl bincode::Encode for Header {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -51,7 +48,7 @@ impl Encode for Header {
     }
 }
 
-impl Decode for Header {
+impl bincode::Decode for Header {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -72,4 +69,4 @@ impl Decode for Header {
     }
 }
 
-impl_borrow_decode!(Header);
+bincode::impl_borrow_decode!(Header);
