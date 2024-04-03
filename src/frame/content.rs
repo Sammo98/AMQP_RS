@@ -1,17 +1,17 @@
 use crate::endec::*;
 
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, bincode::Decode, bincode::Encode)]
 pub struct Content {
     header: Header,
     class_id: ClassID,
     weight: u16,
     size: u64,
-    properties: u16,
+    pub properties: Properties,
     frame_end: u8,
 }
 
 impl Content {
-    pub fn new(size: u64) -> Self {
+    pub fn new(size: u64, properties: Properties) -> Self {
         let header = Header {
             frame_type: FrameType::Header,
             channel: 1,
@@ -19,7 +19,6 @@ impl Content {
         };
         let class_id = ClassID::Basic;
         let weight = 0;
-        let properties = 0;
         Self {
             header,
             class_id,

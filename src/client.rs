@@ -141,7 +141,23 @@ impl Client {
         full_buffer.extend_from_slice(&bytes);
 
         // Content header
-        let content_header = content::Content::new(message.len() as u64);
+        let properties = Properties::builder()
+            .content_type("Test".into())
+            .content_encoding("Some shitty encoding".into())
+            .headers(vec![("abc".into(), Field::LS(LongString("abc".into())))]) // this needs to be a long string for some reason?
+            .delivery_mode(1)
+            .priority(10)
+            .correlation_id("wtf is this working".into())
+            .reply_to("test".into())
+            .expiration("1010".into()) // Looks like this needs to be an int??
+            .message_id("hello".into())
+            .timestamp(20230101)
+            .message_type("some message type".into())
+            .user_id("guest".into()) // this needs to match authenticated user
+            .app_id("test".into())
+            .cluster_id("ha".into())
+            .build();
+        let content_header = content::Content::new(message.len() as u64, properties);
         let bytes = encode_frame(&content_header).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
@@ -154,8 +170,6 @@ impl Client {
 
         self.connection.lock().await.write(&full_buffer).await?;
         Ok(())
-
-        // Body
     }
 
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
@@ -191,9 +205,10 @@ impl Client {
                 tokio::task::spawn(async move {
                     let mut frames = buffer.split_inclusive(|&x| x == FRAME_END);
                     let deliver: basic::Deliver = decode_frame(frames.next().unwrap()).unwrap();
-                    let _content_header: content::Content =
+                    let content_header: content::Content =
                         decode_frame(frames.next().unwrap()).unwrap();
                     let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
+                    println!("Props: {:?}", content_header.properties);
                     handler(&body.inner());
                     let ack = basic::Ack::new(deliver.delivery_tag);
                     let bytes = encode_frame(&ack).unwrap();
