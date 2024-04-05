@@ -1,4 +1,4 @@
-use crate::endec::*;
+use crate::encde::*;
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct ProtocolHeader {

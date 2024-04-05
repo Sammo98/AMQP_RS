@@ -1,4 +1,4 @@
-use crate::endec::{LongString, ShortString};
+use super::{LongString, ShortString};
 
 #[derive(Debug, Clone)]
 pub struct Table(pub Vec<(String, Field)>);

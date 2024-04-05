@@ -1,9 +1,17 @@
 [package]
-name = "amqp_rs"
+name = "byteflow"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "byteflow"
+
 
 [dependencies]
 tokio = { version = "1.36", features = ["net", "rt", "macros", "full"] }
