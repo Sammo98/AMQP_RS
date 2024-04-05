@@ -57,25 +57,9 @@ impl Publisher {
         full_buffer.extend_from_slice(&bytes);
 
         // Content header
-        let properties = Properties::builder()
-            // .content_type("Test".into())
-            // .content_encoding("Some shitty encoding".into())
-            .headers(vec![("abc".into(), Field::LS(LongString("abc".into())))]) // this needs to be a long string for some reason?
-            // .delivery_mode(1)
-            // .priority(10)
-            // .correlation_id("wtf is this working".into())
-            // .reply_to("test".into())
-            // .expiration("1010".into()) // Looks like this needs to be an int??
-            // .message_id("hello".into())
-            // .timestamp(20230101)
-            // .message_type("some message type".into())
-            // .user_id("guest".into()) // this needs to match authenticated user
-            // .app_id("test".into())
-            // .cluster_id("ha".into())
-            .build();
+        let properties = Properties::builder().content_type("Hello".into()).build();
         let content_header = content::Content::new(message.len() as u64, properties);
         let bytes = encode_frame(&content_header).unwrap();
-        println!("Content header bytes: {bytes:?}");
         full_buffer.extend_from_slice(&bytes);
 
         // body
@@ -84,7 +68,6 @@ impl Publisher {
         let body = body::Body::new(RawBytes(message_bytes));
         let bytes = encode_frame(&body).unwrap();
         full_buffer.extend_from_slice(&bytes);
-        println!("fb {full_buffer:?}");
 
         self.connection.send(&full_buffer).await?;
         Ok(())

@@ -63,12 +63,20 @@ impl StartOk {
         ]);
 
         let client_properties: Table = Table(vec![
-            ("capabilities".into(), Field::T(capabilites)),
             (
                 "product".to_owned(),
-                Field::LS(LongString("Rust AMQP Client Library".into())),
+                Field::LS(LongString("Pika Python Client Library".into())),
             ),
-            ("platform".into(), Field::LS(LongString("Rust".into()))),
+            (
+                "platform".into(),
+                Field::LS(LongString("Python 3.11.6".into())),
+            ),
+            ("capabilities".into(), Field::T(capabilites)),
+            (
+                "information".into(),
+                Field::LS(LongString("See http://pika.rtfd.org".into())),
+            ),
+            ("version".into(), Field::LS(LongString("2.0.0a0".into()))),
         ]);
         let header = Header {
             frame_type: FrameType::Method,
@@ -86,7 +94,7 @@ impl StartOk {
             client_properties,
             mechanism: ShortString(mechanism),
             response: LongString(response),
-            locale: ShortString(locale),
+            locale: ShortString("en_US".into()),
             frame_end,
         }
     }

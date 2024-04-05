@@ -86,7 +86,7 @@ impl PropertiesBuilder {
         self
     }
     pub fn expiration(mut self, expiration: String) -> Self {
-        self.expiration = Some(expiration);
+        self.expiration = Some(expiration); // This needs to be a string int
         self
     }
     pub fn message_id(mut self, message_id: String) -> Self {

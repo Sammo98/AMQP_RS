@@ -24,6 +24,11 @@ impl ClientConnection {
         Ok(())
     }
 
+    pub async fn read(&self) -> Result<[u8; 1024]> {
+        let bytes = self.connection.lock().await.read().await?;
+        Ok(bytes)
+    }
+
     pub async fn connect(&self) -> Result<()> {
         // Break this up
         let protocol_header = connection::ProtocolHeader::new();
@@ -68,7 +73,6 @@ impl ClientConnection {
 
         let buffer = self.connection.lock().await.read().await?;
         let _open_ok: channel::OpenOk = decode_frame(&buffer).unwrap();
-        println!("Open ok {_open_ok:?}");
         Ok(1)
     }
 
@@ -79,14 +83,17 @@ impl ClientConnection {
         self.connection.lock().await.write(&bytes).await?;
 
         let buffer = self.connection.lock().await.read().await?;
-        let _declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
+        let declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
+        println!(
+            "Pre existing messages on {queue_name}: {}",
+            declare_ok.message_count
+        );
         Ok(())
     }
 }
 
 struct TcpConnection {
-    reader: ReadHalf<TcpStream>,
-    writer: WriteHalf<TcpStream>,
+    pub connection: TcpStream,
 }
 
 impl TcpConnection {
@@ -95,17 +102,21 @@ impl TcpConnection {
             .await
             .expect("Failed to connect to address");
 
-        let (reader, writer) = tokio::io::split(connection);
-
-        Self { reader, writer }
+        Self { connection }
     }
     pub async fn write(&mut self, bytes: &[u8]) -> Result<()> {
-        self.writer.write_all(bytes).await?;
+        self.connection.write_all(bytes).await?;
         Ok(())
     }
-    pub async fn read(&mut self) -> Result<[u8; FRAME_MAX_SIZE]> {
-        let mut buffer = [0_u8; FRAME_MAX_SIZE];
-        self.reader.read(&mut buffer).await?;
-        Ok(buffer)
+    pub async fn read(&mut self) -> Result<[u8; 1024]> {
+        let mut buf = [0_u8; 1024];
+        loop {
+            let bytes_read = self.connection.read(&mut buf).await?;
+            match buf[bytes_read - 1] {
+                0xCE | 0 => break,
+                _ => continue,
+            }
+        }
+        Ok(buf)
     }
 }

@@ -159,7 +159,6 @@ impl Client {
             .build();
         let content_header = content::Content::new(message.len() as u64, properties);
         let bytes = encode_frame(&content_header).unwrap();
-        println!("Content header bytes: {bytes:?}");
         full_buffer.extend_from_slice(&bytes);
 
         // body
@@ -168,18 +167,13 @@ impl Client {
         let body = body::Body::new(RawBytes(message_bytes));
         let bytes = encode_frame(&body).unwrap();
         full_buffer.extend_from_slice(&bytes);
-        println!("fb {full_buffer:?}");
 
         self.connection.lock().await.write(&full_buffer).await?;
         Ok(())
     }
 
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let consume = basic::Consume::new(
-            ShortString(queue.into()),
-            ShortString("CONSUMER_TAG2".into()),
-            Bits(vec![]),
-        );
+        let consume = basic::Consume::new(ShortString(queue.into()), Bits(vec![]));
         let bytes = encode_frame(&consume).unwrap();
         self.connection.lock().await.write(&bytes).await?;
 
@@ -210,7 +204,6 @@ impl Client {
                     let content_header: content::Content =
                         decode_frame(frames.next().unwrap()).unwrap();
                     let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
-                    println!("Props: {:?}", content_header.properties);
                     handler(&body.inner());
                     let ack = basic::Ack::new(deliver.delivery_tag);
                     let bytes = encode_frame(&ack).unwrap();
@@ -221,7 +214,6 @@ impl Client {
                         .write(&bytes)
                         .await
                         .expect("Failed to ack");
-                    println!("Ack sent!");
                 });
             }
         }

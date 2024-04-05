@@ -50,7 +50,7 @@ pub struct Consume {
 }
 
 impl Consume {
-    pub fn new(queue_name: ShortString, consumer_tag: ShortString, bits: Bits) -> Self {
+    pub fn new(queue_name: ShortString, bits: Bits) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
             channel: 1,
@@ -65,7 +65,7 @@ impl Consume {
             method_id,
             reserved_1: 0,
             queue_name,
-            consumer_tag,
+            consumer_tag: ShortString("abc".into()),
             bits,
             arguments: Table(vec![]),
             frame_end,

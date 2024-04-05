@@ -5,7 +5,7 @@ pub struct Declare {
     header: Header,
     class_id: ClassID,
     method_id: QueueMethodId,
-    reserved_1: u16,
+    reserved_1: u16, // ticket?
     queue: ShortString,
     // passive, durable, exclusive, auto_delete, no_wait
     bits: Bits,
@@ -42,7 +42,7 @@ pub struct DeclareOk {
     _class_id: ClassID,
     _method_id: QueueMethodId,
     _queue_name: ShortString,
-    _message_count: u32,
+    pub message_count: u32,
     _consumer_count: u32,
     _frame_end: u8,
 }
