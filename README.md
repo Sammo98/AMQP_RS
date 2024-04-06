@@ -19,6 +19,7 @@ TODO:
 - [ ] Ensure both high level api and lower level api for granular control is implemented.
 - [ ] Logging
 - [ ] Sort out Tokio implementation
+- [ ] Try to figure out why the fuck we're not picking up messages which are already on the queue after basic.consume
 - [ ] Tests and Documentation for Public API
 - [ ] CI
 - [ ] Profit? 

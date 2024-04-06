@@ -1,20 +1,20 @@
-use crate::common::ClientConnection;
 use crate::encde::*;
 use crate::frame::*;
+use crate::tcp::TcpAdapter;
 use std::cell::RefCell;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub struct Publisher {
-    connection: ClientConnection,
+    tcp_adapter: TcpAdapter,
     channel: RefCell<u16>,
 }
 
 impl Publisher {
     pub async fn new(address: &str) -> Self {
-        let connection = ClientConnection::new(address).await;
+        let tcp_adapter = TcpAdapter::new(address).await;
 
         Self {
-            connection,
+            tcp_adapter,
             channel: RefCell::new(0),
         }
     }
@@ -23,19 +23,19 @@ impl Publisher {
         self.channel.clone().into_inner()
     }
 
-    pub async fn connect(&self) -> Result<()> {
-        self.connection.connect().await?;
+    pub async fn connect(&mut self) -> Result<()> {
+        self.tcp_adapter.connect().await?;
         self.channel.replace(1);
         Ok(())
     }
 
-    pub async fn create_channel(&self) -> Result<()> {
-        self.connection.create_channel().await?;
+    pub async fn create_channel(&mut self) -> Result<()> {
+        self.tcp_adapter.create_channel().await?; // These methods shouldn't be coupled to the adapter
         Ok(())
     }
 
-    pub async fn create_queue(&self, queue_name: &str) -> Result<()> {
-        self.connection.create_queue(queue_name).await?;
+    pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
+        self.tcp_adapter.create_queue(queue_name).await?;
         Ok(())
     }
 
@@ -69,7 +69,7 @@ impl Publisher {
         let bytes = encode_frame(&body).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
-        self.connection.send(&full_buffer).await?;
+        self.tcp_adapter.send(full_buffer).await;
         Ok(())
     }
 }

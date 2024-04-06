@@ -1,22 +1,24 @@
-use crate::common::ClientConnection;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedReceiver;
+
 use crate::encde::*;
 use crate::frame::*;
+use crate::tcp::TcpAdapter;
 use std::cell::RefCell;
-use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-type Handler = Arc<dyn Fn(&[u8]) + Send + Sync>;
+type Handler = &'static (dyn Fn(&[u8]) + Send + Sync);
 pub struct Consumer {
-    connection: Arc<ClientConnection>,
+    tcp_adapter: TcpAdapter,
     channel: RefCell<u16>,
 }
 
 impl Consumer {
     pub async fn new(address: &str) -> Self {
-        let connection = Arc::new(ClientConnection::new(address).await);
+        let tcp_adapter = TcpAdapter::new(address).await; // This should automatically call connect, otherwise the handshake might timeout
 
         Self {
-            connection,
+            tcp_adapter,
             channel: RefCell::new(0),
         }
     }
@@ -25,62 +27,58 @@ impl Consumer {
         self.channel.clone().into_inner()
     }
 
-    pub async fn connect(&self) -> Result<()> {
-        self.connection.connect().await?;
+    pub async fn connect(&mut self) -> Result<()> {
+        self.tcp_adapter.connect().await?;
         self.channel.replace(1);
         Ok(())
     }
 
-    pub async fn create_channel(&self) -> Result<()> {
-        self.connection.create_channel().await?;
+    pub async fn create_channel(&mut self) -> Result<()> {
+        self.tcp_adapter.create_channel().await?;
         Ok(())
     }
 
-    pub async fn create_queue(&self, queue_name: &str) -> Result<()> {
-        self.connection.create_queue(queue_name).await?;
+    pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
+        self.tcp_adapter.create_queue(queue_name).await?;
         Ok(())
     }
-    pub async fn consume_on_queue(&self, queue: &str, handler: Handler) -> Result<()> {
+    pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
         let consume = basic::Consume::new(ShortString(queue.into()), Bits(vec![0, 0, 0, 0]));
         let bytes = encode_frame(&consume).unwrap();
-        self.connection.send(&bytes).await?;
+        self.tcp_adapter.send(bytes).await;
 
         // ConsumeOk
-        let buffer = self.connection.read().await?;
+        let buffer = self.tcp_adapter.receive().await.unwrap();
         let _consume_ok: basic::ConsumeOk = decode_frame(&buffer).unwrap();
-        println!("Trying to read");
+        let (tx, rx) = mpsc::unbounded_channel();
+        tokio::task::spawn(async move { consumer_task(rx, handler).await });
 
-        while let Ok(buffer) = self.connection.read().await {
-            println!("Read!");
+        while let Some(buffer) = self.tcp_adapter.receive().await {
             let header: Header = decode_frame(&buffer).unwrap();
-            let connection = Arc::clone(&self.connection);
-            let handler = Arc::clone(&handler);
             if header.frame_type == FrameType::Heartbeat {
-                tokio::task::spawn(async move {
-                    let heart_beat = [8_u8, 0, 0, 0, 0, 0, 0, 0xCE];
-                    println!("Sending heartbeat");
-                    connection
-                        .send(&heart_beat)
-                        .await
-                        .expect("Failed to write heartbeat");
-                });
+                let heart_beat = [8_u8, 0, 0, 0, 0, 0, 0, 0xCE].to_vec();
+                self.tcp_adapter.send(heart_beat).await;
+                println!("Sent heartbeat");
                 continue;
             } else {
-                tokio::task::spawn(async move {
-                    let mut frames = buffer.split_inclusive(|&x| x == FRAME_END);
-                    let deliver: basic::Deliver = decode_frame(frames.next().unwrap()).unwrap();
-                    let content_header: content::Content =
-                        decode_frame(frames.next().unwrap()).unwrap();
-                    let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
-                    handler(&body.inner());
-                    let ack = basic::Ack::new(deliver.delivery_tag);
-                    let bytes = encode_frame(&ack).unwrap();
-                    // TODO sort out connection, this lock has contention from the constant polling
-                    connection.send(&bytes).await.expect("Failed to ack");
-                    println!("Ack sent!");
-                });
+                let mut frames = buffer.split_inclusive(|&x| x == FRAME_END);
+                let deliver: basic::Deliver = decode_frame(frames.next().unwrap()).unwrap();
+                let content_header: content::Content =
+                    decode_frame(frames.next().unwrap()).unwrap();
+                let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
+                let bytes = body.inner();
+                let _x = tx.send(bytes);
             }
         }
         Ok(())
+    }
+}
+
+async fn consumer_task(mut receiver: UnboundedReceiver<Vec<u8>>, handler: Handler) {
+    println!("Consumer started");
+    while let Some(message) = receiver.recv().await {
+        tokio::task::spawn(async move {
+            handler(&message);
+        });
     }
 }
