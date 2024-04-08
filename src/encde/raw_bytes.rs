@@ -29,6 +29,7 @@ impl bincode::Decode for RawBytes {
         while let Ok(byte) = u8::decode(decoder) {
             bytes.push(byte);
         }
+        _ = bytes.pop(); // remove 0xCE
         Ok(Self(bytes))
     }
 }

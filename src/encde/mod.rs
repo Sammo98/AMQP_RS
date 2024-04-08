@@ -12,7 +12,9 @@ pub use bits::Bits;
 pub use class::ClassID;
 pub use header::{FrameType, Header};
 pub use long_string::LongString;
-pub use method::{BasicMethodId, ChannelMethodID, ConnectionMethodID, QueueMethodId};
+pub use method::{
+    BasicMethodID, ChannelMethodID, ConnectionMethodID, ExchangeMethodID, QueueMethodID,
+};
 pub use properties::Properties;
 pub use raw_bytes::RawBytes;
 pub use short_string::ShortString;
@@ -23,8 +25,8 @@ const CONFIG: bincode::config::Configuration<bincode::config::BigEndian, bincode
         .with_big_endian()
         .with_fixed_int_encoding();
 
-// Header Length + 0xCE
-const LENGTH_ADJUSTMENT: usize = 8;
+// Header Length
+const HEADER_SIZE: usize = 7;
 
 const SIZE_RANGE: std::ops::Range<usize> = 3..7;
 
@@ -34,8 +36,9 @@ pub fn encode_frame<E: bincode::enc::Encode>(
     val: E,
 ) -> Result<Vec<u8>, bincode::error::EncodeError> {
     let mut bytes = bincode::encode_to_vec(&val, CONFIG)?;
-    let frame_length = ((bytes.len() - LENGTH_ADJUSTMENT) as u32).to_be_bytes();
+    let frame_length = ((bytes.len() - HEADER_SIZE) as u32).to_be_bytes();
     bytes.splice(SIZE_RANGE, frame_length);
+    bytes.push(FRAME_END);
     Ok(bytes)
 }
 pub fn encode_frame_static<E: bincode::enc::Encode>(

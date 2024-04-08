@@ -7,7 +7,6 @@ pub struct Content {
     weight: u16,
     size: u64,
     pub properties: Properties,
-    frame_end: u8,
 }
 
 impl Content {
@@ -25,7 +24,6 @@ impl Content {
             weight,
             size,
             properties,
-            frame_end: FRAME_END,
         }
     }
 }

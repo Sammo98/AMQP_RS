@@ -97,7 +97,45 @@ impl bincode::Encode for ChannelMethodID {
 }
 
 #[derive(Debug, Clone)]
-pub enum QueueMethodId {
+pub enum ExchangeMethodID {
+    Declare,
+    DeclareOk,
+    Delete,
+    DeleteOk,
+    // Bind?
+}
+
+impl bincode::Decode for ExchangeMethodID {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        Ok(match u16::decode(decoder)? {
+            10 => Self::Declare,
+            11 => Self::DeclareOk,
+            20 => Self::Delete,
+            21 => Self::DeleteOk,
+            _ => todo!(),
+        })
+    }
+}
+
+impl bincode::Encode for ExchangeMethodID {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self {
+            Self::Declare => 10_u16.encode(encoder)?,
+            Self::DeclareOk => 11_u16.encode(encoder)?,
+            Self::Delete => 20_u16.encode(encoder)?,
+            Self::DeleteOk => 21_u16.encode(encoder)?,
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum QueueMethodID {
     Declare,
     DeclareOk,
     Bind,
@@ -110,7 +148,7 @@ pub enum QueueMethodId {
     UnbindOk,
 }
 
-impl bincode::Decode for QueueMethodId {
+impl bincode::Decode for QueueMethodID {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -130,7 +168,7 @@ impl bincode::Decode for QueueMethodId {
     }
 }
 
-impl bincode::Encode for QueueMethodId {
+impl bincode::Encode for QueueMethodID {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -151,7 +189,7 @@ impl bincode::Encode for QueueMethodId {
     }
 }
 #[derive(Debug, Clone)]
-pub enum BasicMethodId {
+pub enum BasicMethodID {
     QualityOfService,
     QualityOfServiceOk,
     Consume,
@@ -171,7 +209,7 @@ pub enum BasicMethodId {
     RecoverOk,
 }
 
-impl bincode::Decode for BasicMethodId {
+impl bincode::Decode for BasicMethodID {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
@@ -198,7 +236,7 @@ impl bincode::Decode for BasicMethodId {
     }
 }
 
-impl bincode::Encode for BasicMethodId {
+impl bincode::Encode for BasicMethodID {
     fn encode<E: bincode::enc::Encoder>(
         &self,
         encoder: &mut E,
@@ -227,5 +265,6 @@ impl bincode::Encode for BasicMethodId {
 }
 bincode::impl_borrow_decode!(ConnectionMethodID);
 bincode::impl_borrow_decode!(ChannelMethodID);
-bincode::impl_borrow_decode!(QueueMethodId);
-bincode::impl_borrow_decode!(BasicMethodId);
+bincode::impl_borrow_decode!(QueueMethodID);
+bincode::impl_borrow_decode!(BasicMethodID);
+bincode::impl_borrow_decode!(ExchangeMethodID);

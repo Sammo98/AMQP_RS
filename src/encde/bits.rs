@@ -24,3 +24,18 @@ impl bincode::Encode for Bits {
         Ok(())
     }
 }
+
+impl bincode::Decode for Bits {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let flags = u8::decode(decoder)?;
+        let mut bits = Vec::new();
+        for i in 0_u8..8 {
+            bits.push(flags & 1 << i);
+        }
+        Ok(Self(bits))
+    }
+}
+
+bincode::impl_borrow_decode!(Bits);

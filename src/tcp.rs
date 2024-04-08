@@ -1,11 +1,8 @@
-use crate::encde::*;
-use crate::frame::*;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
 };
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 struct AdapterReader {
     tcp_reader: ReadHalf<TcpStream>,
@@ -81,69 +78,10 @@ impl TcpAdapter {
     }
 
     pub async fn send(&self, bytes: Vec<u8>) {
-        let _x = self.tcp_sender.send(bytes);
+        self.tcp_sender.send(bytes).unwrap();
     }
 
     pub async fn receive(&mut self) -> Option<Vec<u8>> {
         self.tcp_receiver.recv().await
-    }
-    pub async fn connect(&mut self) -> Result<()> {
-        // Break this up
-        let protocol_header = connection::ProtocolHeader::new();
-        let bytes = encode_frame_static(&protocol_header).unwrap();
-        self.send(bytes).await;
-
-        // Read Start
-        let buffer = self.receive().await.unwrap();
-        let start: connection::Start = decode_frame(&buffer).unwrap();
-        let LongString(locales) = &start.locales;
-
-        // Write StartOk
-        let start_ok_test =
-            connection::StartOk::new("PLAIN".into(), "\0guest\0guest".into(), locales.clone());
-        let bytes = encode_frame(start_ok_test).unwrap();
-        self.send(bytes).await;
-
-        // Read Tune
-        let buffer = self.receive().await.unwrap();
-        let tune: connection::Tune = decode_frame(&buffer).unwrap();
-
-        // Write TuneOk
-        let tune_ok = connection::TuneOk::new(tune.channel_max, tune.frame_max, tune.heartbeat);
-        let bytes = encode_frame(tune_ok).unwrap();
-        self.send(bytes).await;
-
-        // Read Open
-        let open_test = connection::Open::new("/".into(), "".into(), true);
-        let bytes = encode_frame(open_test).unwrap();
-        self.send(bytes).await;
-        // OpenOk
-        let buffer = self.receive().await.unwrap();
-        let _open_ok: connection::OpenOk = decode_frame(&buffer).unwrap();
-        Ok(())
-    }
-
-    pub async fn create_channel(&mut self) -> Result<u16> {
-        let open = channel::Open::new();
-        let bytes = encode_frame(&open).unwrap();
-        self.send(bytes).await;
-
-        let buffer = self.receive().await.unwrap();
-        let _open_ok: channel::OpenOk = decode_frame(&buffer).unwrap();
-        Ok(1)
-    }
-    pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
-        let declare =
-            queue::Declare::new(ShortString(queue_name.into()), Bits(vec![0, 0, 0, 0, 0]));
-        let bytes = encode_frame(declare).unwrap();
-        self.send(bytes).await;
-
-        let buffer = self.receive().await.unwrap();
-        let declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
-        println!(
-            "Pre existing messages on {queue_name}: {}",
-            declare_ok.message_count
-        );
-        Ok(())
     }
 }

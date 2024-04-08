@@ -1,6 +1,12 @@
 use crate::encde::*;
-
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+struct ConnectionFrameInfo {
+    header: Header,
+    class_id: ClassID,
+    method_id: ConnectionMethodID,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct ProtocolHeader {
     a: u8,
     m: u8,
@@ -27,29 +33,23 @@ impl ProtocolHeader {
     }
 }
 
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, bincode::Decode)]
 pub struct Start {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     version_major: u8,
     version_minor: u8,
     server_properties: Table,
     pub mechanisms: LongString,
     pub locales: LongString,
-    frame_end: u8,
 }
 
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct StartOk {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     client_properties: Table,
     mechanism: ShortString,
     response: LongString,
     locale: ShortString,
-    frame_end: u8,
 }
 
 impl StartOk {
@@ -86,40 +86,46 @@ impl StartOk {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::StartOk;
-        let frame_end = FRAME_END;
-        Self {
+        let frame_info = ConnectionFrameInfo {
             header,
             class_id,
             method_id,
+        };
+        Self {
+            frame_info,
             client_properties,
             mechanism: ShortString(mechanism),
             response: LongString(response),
-            locale: ShortString("en_US".into()),
-            frame_end,
+            locale: ShortString(locale),
         }
     }
 }
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
-pub struct Tune {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
-    pub channel_max: u16,
-    pub frame_max: u32,
-    pub heartbeat: u16,
-    frame_end: u8,
+pub struct Secure {
+    frame_info: ConnectionFrameInfo,
+    challenge: LongString,
 }
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+pub struct SecureOk {
+    frame_info: ConnectionFrameInfo,
+    response: LongString,
+}
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct Tune {
+    frame_info: ConnectionFrameInfo,
+    pub channel_max: u16,
+    pub frame_max: u32,
+    pub heartbeat: u16,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct TuneOk {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     channel_max: u16,
     frame_max: u32,
     heartbeat: u16,
-    frame_end: u8,
 }
 
 impl TuneOk {
@@ -132,28 +138,26 @@ impl TuneOk {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::TuneOk;
-        let frame_end = FRAME_END;
-        Self {
+        let frame_info = ConnectionFrameInfo {
             header,
             class_id,
             method_id,
+        };
+        Self {
+            frame_info,
             channel_max,
             frame_max,
             heartbeat,
-            frame_end,
         }
     }
 }
 
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct Open {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     pub virtual_host: ShortString,
     pub reserved_1: ShortString,
     pub reserved_2: bool,
-    frame_end: u8,
 }
 
 impl Open {
@@ -168,38 +172,33 @@ impl Open {
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::Open;
-        let frame_end = FRAME_END;
-        Self {
+        let frame_info = ConnectionFrameInfo {
             header,
             class_id,
             method_id,
+        };
+        Self {
+            frame_info,
             virtual_host,
             reserved_1,
             reserved_2,
-            frame_end,
         }
     }
 }
 
 #[derive(Debug, Clone, bincode::Decode)]
 pub struct OpenOk {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     reserved_1: ShortString,
-    frame_end: u8,
 }
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct Close {
-    header: Header,
-    class_id: ClassID,
-    method_id: ConnectionMethodID,
+    frame_info: ConnectionFrameInfo,
     reply_code: u16,
     reply_text: ShortString,
     closing_class_id: u16,
     closing_method_id: u16,
-    frame_end: u8,
 }
 
 impl Close {
@@ -216,16 +215,22 @@ impl Close {
         };
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::Close;
-        let frame_end = FRAME_END;
-        Self {
+        let frame_info = ConnectionFrameInfo {
             header,
             class_id,
             method_id,
+        };
+        Self {
+            frame_info,
             reply_code,
             reply_text,
             closing_class_id,
             closing_method_id,
-            frame_end,
         }
     }
+}
+
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+pub struct CloseOk {
+    frame_info: ConnectionFrameInfo,
 }

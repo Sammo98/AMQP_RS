@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Properties {
     content_type: Option<String>,
     content_encoding: Option<String>,
@@ -133,36 +133,26 @@ impl PropertiesBuilder {
         }
     }
 }
-const CONTENT_TYPE: u64 = 1 << 15;
-const CONTENT_ENCODING: u64 = 1 << 14;
-const HEADERS: u64 = 1 << 13;
-const DELIVERY_MODE: u64 = 1 << 12;
-const PRIORITY: u64 = 1 << 11;
-const CORRELATION_ID: u64 = 1 << 10;
-const REPLY_TO: u64 = 1 << 9;
-const EXPIRATION: u64 = 1 << 8;
-const MESSAGE_ID: u64 = 1 << 7;
-const TIMESTAMP: u64 = 1 << 6;
-const MESSAGE_TYPE: u64 = 1 << 5;
-const USER_ID: u64 = 1 << 4;
-const APP_ID: u64 = 1 << 3;
-const CLUSTER_ID: u64 = 1 << 2;
+const CONTENT_TYPE: u16 = 1 << 15;
+const CONTENT_ENCODING: u16 = 1 << 14;
+const HEADERS: u16 = 1 << 13;
+const DELIVERY_MODE: u16 = 1 << 12;
+const PRIORITY: u16 = 1 << 11;
+const CORRELATION_ID: u16 = 1 << 10;
+const REPLY_TO: u16 = 1 << 9;
+const EXPIRATION: u16 = 1 << 8;
+const MESSAGE_ID: u16 = 1 << 7;
+const TIMESTAMP: u16 = 1 << 6;
+const MESSAGE_TYPE: u16 = 1 << 5;
+const USER_ID: u16 = 1 << 4;
+const APP_ID: u16 = 1 << 3;
+const CLUSTER_ID: u16 = 1 << 2;
 
 impl bincode::Decode for Properties {
     fn decode<D: bincode::de::Decoder>(
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
-        let mut flags = 0_u64;
-        let mut flag_index = 0_u16;
-        loop {
-            let partial_flags = u16::decode(decoder)? as u64;
-            flags = flags | (partial_flags << (flag_index * 16));
-            if (partial_flags & 1) == 0 {
-                break;
-            } else {
-                flag_index += 1;
-            }
-        }
+        let flags = u16::decode(decoder)?;
         let content_type = match (flags & CONTENT_TYPE) != 0 {
             true => {
                 let ShortString(val) = ShortString::decode(decoder)?;
@@ -281,47 +271,47 @@ impl bincode::Encode for Properties {
         encoder: &mut E,
     ) -> Result<(), bincode::error::EncodeError> {
         let mut flags: u16 = 0;
-        if let Some(_) = self.content_type {
-            flags = flags | (CONTENT_TYPE as u16);
+        if self.content_type.is_some() {
+            flags |= CONTENT_TYPE;
         }
-        if let Some(_) = self.content_encoding {
-            flags = flags | (CONTENT_ENCODING as u16);
+        if self.content_encoding.is_some() {
+            flags |= CONTENT_ENCODING;
         }
-        if let Some(_) = self.headers {
-            flags = flags | (HEADERS as u16);
+        if self.headers.is_some() {
+            flags |= HEADERS;
         }
-        if let Some(_) = self.delivery_mode {
-            flags = flags | (DELIVERY_MODE as u16);
+        if self.delivery_mode.is_some() {
+            flags |= DELIVERY_MODE;
         }
-        if let Some(_) = self.priority {
-            flags = flags | (PRIORITY as u16);
+        if self.priority.is_some() {
+            flags |= PRIORITY;
         }
-        if let Some(_) = self.correlation_id {
-            flags = flags | (CORRELATION_ID as u16);
+        if self.correlation_id.is_some() {
+            flags |= CORRELATION_ID;
         }
-        if let Some(_) = self.reply_to {
-            flags = flags | (REPLY_TO as u16);
+        if self.reply_to.is_some() {
+            flags |= REPLY_TO;
         }
-        if let Some(_) = self.expiration {
-            flags = flags | (EXPIRATION as u16);
+        if self.expiration.is_some() {
+            flags |= EXPIRATION;
         }
-        if let Some(_) = self.message_id {
-            flags = flags | (MESSAGE_ID as u16);
+        if self.message_id.is_some() {
+            flags |= MESSAGE_ID;
         }
-        if let Some(_) = self.timestamp {
-            flags = flags | (TIMESTAMP as u16);
+        if self.timestamp.is_some() {
+            flags |= TIMESTAMP;
         }
-        if let Some(_) = self.message_type {
-            flags = flags | (MESSAGE_TYPE as u16);
+        if self.message_type.is_some() {
+            flags |= MESSAGE_TYPE;
         }
-        if let Some(_) = self.user_id {
-            flags = flags | (USER_ID as u16);
+        if self.user_id.is_some() {
+            flags |= USER_ID;
         }
-        if let Some(_) = self.app_id {
-            flags = flags | (APP_ID as u16);
+        if self.app_id.is_some() {
+            flags |= APP_ID;
         }
-        if let Some(_) = self.cluster_id {
-            flags = flags | (CLUSTER_ID as u16);
+        if self.cluster_id.is_some() {
+            flags |= CLUSTER_ID;
         }
         flags.encode(encoder)?;
 

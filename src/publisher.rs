@@ -1,41 +1,23 @@
-use crate::encde::*;
-use crate::frame::*;
-use crate::tcp::TcpAdapter;
-use std::cell::RefCell;
+use crate::{client_connection::Connection, encde::*, frame::*, types::*};
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub struct Publisher {
-    tcp_adapter: TcpAdapter,
-    channel: RefCell<u16>,
+    connection: Connection,
 }
 
 impl Publisher {
     pub async fn new(address: &str) -> Self {
-        let tcp_adapter = TcpAdapter::new(address).await;
+        let connection = Connection::connect(address).await;
 
-        Self {
-            tcp_adapter,
-            channel: RefCell::new(0),
-        }
-    }
-
-    fn get_channel(&self) -> u16 {
-        self.channel.clone().into_inner()
-    }
-
-    pub async fn connect(&mut self) -> Result<()> {
-        self.tcp_adapter.connect().await?;
-        self.channel.replace(1);
-        Ok(())
+        Self { connection }
     }
 
     pub async fn create_channel(&mut self) -> Result<()> {
-        self.tcp_adapter.create_channel().await?; // These methods shouldn't be coupled to the adapter
+        self.connection.create_channel().await?; // These methods shouldn't be coupled to the adapter
         Ok(())
     }
 
     pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
-        self.tcp_adapter.create_queue(queue_name).await?;
+        self.connection.create_queue(queue_name).await?;
         Ok(())
     }
 
@@ -46,6 +28,7 @@ impl Publisher {
         exchange: &str,
         mandatory: bool,
         immediate: bool,
+        properties: Properties,
     ) -> Result<()> {
         let mut full_buffer: Vec<u8> = Vec::new();
         let publish = basic::Publish::new(
@@ -57,7 +40,6 @@ impl Publisher {
         full_buffer.extend_from_slice(&bytes);
 
         // Content header
-        let properties = Properties::builder().content_type("Hello".into()).build();
         let content_header = content::Content::new(message.len() as u64, properties);
         let bytes = encode_frame(&content_header).unwrap();
         full_buffer.extend_from_slice(&bytes);
@@ -69,7 +51,7 @@ impl Publisher {
         let bytes = encode_frame(&body).unwrap();
         full_buffer.extend_from_slice(&bytes);
 
-        self.tcp_adapter.send(full_buffer).await;
+        self.connection.write(full_buffer).await;
         Ok(())
     }
 }

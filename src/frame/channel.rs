@@ -1,12 +1,16 @@
 use crate::encde::*;
 
-#[derive(Debug, Clone, bincode::Encode)]
-pub struct Open {
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+struct ChannelFrameInfo {
     header: Header,
     class_id: ClassID,
     method_id: ChannelMethodID,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Open {
+    frame_info: ChannelFrameInfo,
     reserved_1: ShortString,
-    frame_end: u8,
 }
 
 impl Open {
@@ -18,23 +22,44 @@ impl Open {
         };
         let class_id = ClassID::Channel;
         let method_id = ChannelMethodID::Open;
-        let frame_end = FRAME_END;
-        Self {
+        let frame_info = ChannelFrameInfo {
             header,
             class_id,
             method_id,
+        };
+        Self {
+            frame_info,
             reserved_1: ShortString("".into()),
-            frame_end,
         }
     }
 }
 
 #[derive(Debug, Clone, bincode::Decode)]
 pub struct OpenOk {
-    header: Header,
-    class_id: ClassID,
-    method_id: ChannelMethodID,
+    frame_info: ChannelFrameInfo,
     // Is this channel? Pika thinks so but looks like - to me
     pub reserved_1: u16,
-    frame_end: u8,
+}
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Flow {
+    frame_info: ChannelFrameInfo,
+    active: Bits,
+}
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct FlowOk {
+    frame_info: ChannelFrameInfo,
+    active: Bits,
+}
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Close {
+    frame_info: ChannelFrameInfo,
+    reply_code: u16,
+    reply_text: ShortString,
+    closing_class_id: u16,
+    closing_method_id: u16,
+    reserved_1: ShortString,
+}
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct CloseOk {
+    frame_info: ChannelFrameInfo,
 }

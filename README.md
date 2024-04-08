@@ -7,18 +7,22 @@ TODO:
 - [x] Move to Bincode
 - [x] Add Properties - Some weirdness with table only accepting long string as it's value, but it's there.
 - [x] Convert to Lib
-- [ ] Abstract Connection out - partially done, need to do more
-- [ ] Split pub/sub clients? Might have a lot of code reuse (although this will be mitigated by abstracting connection)
-- [ ] Sort out Channels - Okay so when you call channel open, the channel id is what you send in the header. The channel number is 0 for all frames which are global to the connection and 1-65535 for frames that refer to specific channels. This should be an auto managed thing or optionally managed by the user.
+- [x] Sort out Tokio implementation - Have moved to channels which is going to be much nicer to deal with
+- [x] Split pub/sub clients? Might have a lot of code reuse (although this will be mitigated by abstracting connection)
+- [x] Work out how channel numbers are picked
+- [ ] Add all Frames
+- [ ] Bundle Header and Ids - Remove frame end?
 - [ ] Start building out User API
-- [ ] Error handling
+- [ ] Abstract Connection out - This should interact with the TcpAdapter
+- [ ] Consumer might have multiple handlers for different queues. I need to route by consumer tag. Will need a map of queue_name:ConsumerTaskReceiver.
+- [ ] Error handling - This error?
 - [ ] Table Builder and Hashmap functionality for access. Have this as a struct field but ignore on endec 
+- [ ] Impl default for properties with useful information.
 - [ ] Builder API for clients
 - [ ] Implement more functionality - Exchanges + Transactions etc.
 - [ ] Reply-to structure
 - [ ] Ensure both high level api and lower level api for granular control is implemented.
 - [ ] Logging
-- [ ] Sort out Tokio implementation
 - [ ] Try to figure out why the fuck we're not picking up messages which are already on the queue after basic.consume
 - [ ] Tests and Documentation for Public API
 - [ ] CI

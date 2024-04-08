@@ -1,84 +1,81 @@
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::encde::*;
-use crate::frame::*;
-use crate::tcp::TcpAdapter;
-use std::cell::RefCell;
+use crate::*;
+use crate::{client_connection::Connection, encde::*, frame::*};
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-type Handler = &'static (dyn Fn(&[u8]) + Send + Sync);
 pub struct Consumer {
-    tcp_adapter: TcpAdapter,
-    channel: RefCell<u16>,
+    connection: client_connection::Connection,
 }
 
 impl Consumer {
     pub async fn new(address: &str) -> Self {
-        let tcp_adapter = TcpAdapter::new(address).await; // This should automatically call connect, otherwise the handshake might timeout
+        let connection = Connection::connect(address).await;
 
-        Self {
-            tcp_adapter,
-            channel: RefCell::new(0),
-        }
-    }
-
-    fn get_channel(&self) -> u16 {
-        self.channel.clone().into_inner()
-    }
-
-    pub async fn connect(&mut self) -> Result<()> {
-        self.tcp_adapter.connect().await?;
-        self.channel.replace(1);
-        Ok(())
+        Self { connection }
     }
 
     pub async fn create_channel(&mut self) -> Result<()> {
-        self.tcp_adapter.create_channel().await?;
+        self.connection.create_channel().await?;
         Ok(())
     }
 
     pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
-        self.tcp_adapter.create_queue(queue_name).await?;
+        self.connection.create_queue(queue_name).await?;
         Ok(())
     }
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
         let consume = basic::Consume::new(ShortString(queue.into()), Bits(vec![0, 0, 0, 0]));
         let bytes = encode_frame(&consume).unwrap();
-        self.tcp_adapter.send(bytes).await;
+        self.connection.write(bytes).await;
 
         // ConsumeOk
-        let buffer = self.tcp_adapter.receive().await.unwrap();
+        let buffer = self.connection.read().await.unwrap();
         let _consume_ok: basic::ConsumeOk = decode_frame(&buffer).unwrap();
         let (tx, rx) = mpsc::unbounded_channel();
-        tokio::task::spawn(async move { consumer_task(rx, handler).await });
+        let sender = self.connection.get_writer();
+        tokio::task::spawn(async move { consumer_task(rx, sender, handler).await });
 
-        while let Some(buffer) = self.tcp_adapter.receive().await {
+        while let Some(buffer) = self.connection.read().await {
             let header: Header = decode_frame(&buffer).unwrap();
             if header.frame_type == FrameType::Heartbeat {
                 let heart_beat = [8_u8, 0, 0, 0, 0, 0, 0, 0xCE].to_vec();
-                self.tcp_adapter.send(heart_beat).await;
+                self.connection.write(heart_beat).await;
                 println!("Sent heartbeat");
                 continue;
             } else {
                 let mut frames = buffer.split_inclusive(|&x| x == FRAME_END);
                 let deliver: basic::Deliver = decode_frame(frames.next().unwrap()).unwrap();
+                let delivery_tag = deliver.delivery_tag;
                 let content_header: content::Content =
                     decode_frame(frames.next().unwrap()).unwrap();
-                let body: body::BodyReceive = decode_frame(frames.next().unwrap()).unwrap();
-                let bytes = body.inner();
-                let _x = tx.send(bytes);
+                let properties = content_header.properties;
+                let body: body::Body = decode_frame(frames.next().unwrap()).unwrap();
+                let bytes = body.content.0;
+                let message = Message::new(bytes, properties, AdditionalInfo::new(delivery_tag));
+                let _x = tx.send(message);
             }
         }
         Ok(())
     }
 }
 
-async fn consumer_task(mut receiver: UnboundedReceiver<Vec<u8>>, handler: Handler) {
+async fn consumer_task(
+    mut receiver: UnboundedReceiver<Message>,
+    sender: UnboundedSender<Bytes>,
+    handler: Handler,
+) {
     println!("Consumer started");
     while let Some(message) = receiver.recv().await {
+        let s = sender.clone();
         tokio::task::spawn(async move {
-            handler(&message);
+            // Auto ack mode before
+            let ack = basic::Ack::new(message.additional_info.delivery_tag);
+            let bytes = encode_frame(ack).unwrap();
+            s.send(bytes).unwrap();
+            println!("Sent ack");
+            handler(message);
         });
     }
 }
