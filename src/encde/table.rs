@@ -1,6 +1,6 @@
 use super::{LongString, ShortString};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Table(pub Vec<(String, Field)>);
 
 impl std::ops::Deref for Table {

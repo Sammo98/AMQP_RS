@@ -53,7 +53,7 @@ pub struct StartOk {
 }
 
 impl StartOk {
-    pub fn new(mechanism: String, response: String, locale: String) -> Self {
+    pub fn new(mechanism: &str, response: &str, locale: &str) -> Self {
         let capabilites: Table = Table(vec![
             ("authentication_failure_close".into(), Field::Bool(true)),
             ("basic.nack".into(), Field::Bool(true)),
@@ -94,9 +94,9 @@ impl StartOk {
         Self {
             frame_info,
             client_properties,
-            mechanism: ShortString(mechanism),
-            response: LongString(response),
-            locale: ShortString(locale),
+            mechanism: mechanism.into(),
+            response: response.into(),
+            locale: locale.into(),
         }
     }
 }
@@ -156,19 +156,17 @@ impl TuneOk {
 pub struct Open {
     frame_info: ConnectionFrameInfo,
     pub virtual_host: ShortString,
-    pub reserved_1: ShortString,
-    pub reserved_2: bool,
+    reserved_1: u8,
+    reserved_2: u8,
 }
 
 impl Open {
-    pub fn new(virtual_host: String, reserved_1: String, reserved_2: bool) -> Self {
+    pub fn new(virtual_host: &str) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
             channel: 0,
             size: 0,
         };
-        let virtual_host = ShortString(virtual_host);
-        let reserved_1 = ShortString(reserved_1);
         // Make these enums
         let class_id = ClassID::Connection;
         let method_id = ConnectionMethodID::Open;
@@ -179,9 +177,9 @@ impl Open {
         };
         Self {
             frame_info,
-            virtual_host,
-            reserved_1,
-            reserved_2,
+            virtual_host: virtual_host.into(),
+            reserved_1: RESERVED8,
+            reserved_2: RESERVED8,
         }
     }
 }
@@ -204,7 +202,7 @@ pub struct Close {
 impl Close {
     pub fn new(
         reply_code: u16,
-        reply_text: ShortString,
+        reply_text: &str,
         closing_class_id: u16,
         closing_method_id: u16,
     ) -> Self {
@@ -223,7 +221,7 @@ impl Close {
         Self {
             frame_info,
             reply_code,
-            reply_text,
+            reply_text: reply_text.into(),
             closing_class_id,
             closing_method_id,
         }

@@ -1,5 +1,42 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Bits(pub Vec<u8>);
+
+impl From<(bool,)> for Bits {
+    fn from(value: (bool,)) -> Self {
+        Self(vec![value.0 as u8])
+    }
+}
+impl From<(bool, bool)> for Bits {
+    fn from(value: (bool, bool)) -> Self {
+        Self(vec![value.0 as u8, value.1 as u8])
+    }
+}
+impl From<(bool, bool, bool)> for Bits {
+    fn from(value: (bool, bool, bool)) -> Self {
+        Self(vec![value.0 as u8, value.1 as u8, value.2 as u8])
+    }
+}
+impl From<(bool, bool, bool, bool)> for Bits {
+    fn from(value: (bool, bool, bool, bool)) -> Self {
+        Self(vec![
+            value.0 as u8,
+            value.1 as u8,
+            value.2 as u8,
+            value.3 as u8,
+        ])
+    }
+}
+impl From<(bool, bool, bool, bool, bool)> for Bits {
+    fn from(value: (bool, bool, bool, bool, bool)) -> Self {
+        Self(vec![
+            value.0 as u8,
+            value.1 as u8,
+            value.2 as u8,
+            value.3 as u8,
+            value.4 as u8,
+        ])
+    }
+}
 
 impl std::ops::Deref for Bits {
     type Target = Vec<u8>;

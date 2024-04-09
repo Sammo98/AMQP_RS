@@ -20,6 +20,20 @@ impl Publisher {
         self.connection.create_queue(queue_name).await?;
         Ok(())
     }
+    pub async fn create_exchange(
+        &mut self,
+        exchange: String,
+        exchange_type: ExchangeType,
+    ) -> Result<()> {
+        self.connection
+            .create_exchange(&exchange, exchange_type)
+            .await?;
+        Ok(())
+    }
+    pub async fn delete_exchange(&mut self, exchange: &str) -> Result<()> {
+        self.connection.delete_exchange(exchange).await?;
+        Ok(())
+    }
 
     pub async fn send_message(
         &self,
@@ -31,11 +45,7 @@ impl Publisher {
         properties: Properties,
     ) -> Result<()> {
         let mut full_buffer: Vec<u8> = Vec::new();
-        let publish = basic::Publish::new(
-            ShortString(exchange.into()),
-            ShortString(queue.into()),
-            Bits(vec![mandatory as u8, immediate as u8]),
-        );
+        let publish = basic::Publish::new(exchange, queue, mandatory, immediate);
         let bytes = encode_frame(&publish).unwrap();
         full_buffer.extend_from_slice(&bytes);
 

@@ -9,6 +9,7 @@ pub mod publisher;
 pub mod types;
 
 pub use consumer::Consumer;
+pub use encde::ExchangeType;
 pub use encde::Properties;
 pub use publisher::Publisher;
 pub use types::*;

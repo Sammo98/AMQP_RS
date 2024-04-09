@@ -8,6 +8,66 @@ struct BasicFrameInfo {
 }
 
 #[derive(Debug, Clone, bincode::Encode)]
+pub struct QualityOfService {
+    frame_info: BasicFrameInfo,
+    prefetch_size: u32,
+    prefetch_count: u16,
+    global: Bits,
+}
+
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct QualityOfServiceOk {
+    frame_info: BasicFrameInfo,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Consume {
+    frame_info: BasicFrameInfo,
+    reserved_1: u16,
+    queue_name: ShortString,
+    consumer_tag: ShortString,
+    bits: Bits,
+    arguments: Table,
+}
+
+impl Consume {
+    pub fn new(queue_name: &str) -> Self {
+        let header = Header {
+            frame_type: FrameType::Method,
+            channel: 1,
+            size: 0,
+        };
+        let class_id = ClassID::Basic;
+        let method_id = BasicMethodID::Consume;
+        let frame_info = BasicFrameInfo {
+            header,
+            class_id,
+            method_id,
+        };
+        Self {
+            frame_info,
+            reserved_1: RESERVED16,
+            queue_name: queue_name.into(),
+            consumer_tag: ShortString("abc".into()),
+            bits: Bits::default(),
+            arguments: Table::default(),
+        }
+    }
+}
+#[derive(Debug, Clone, bincode::Decode)]
+pub struct ConsumeOk {
+    frame_info: BasicFrameInfo,
+    consumer_tag: ShortString,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
+pub struct Cancel {
+    frame_info: BasicFrameInfo,
+    consumer_tag: ShortString,
+    no_wait: Bits,
+}
+
+#[derive(Debug, Clone, bincode::Encode)]
 pub struct Publish {
     frame_info: BasicFrameInfo,
     reserved_1: u16,
@@ -17,7 +77,7 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub fn new(exchange_name: ShortString, routing_key: ShortString, bits: Bits) -> Self {
+    pub fn new(exchange_name: &str, routing_key: &str, mandatory: bool, immediate: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
             channel: 1,
@@ -33,52 +93,12 @@ impl Publish {
         };
         Self {
             frame_info,
-            reserved_1: 0,
-            exchange_name,
-            routing_key,
-            bits,
+            reserved_1: RESERVED16,
+            exchange_name: exchange_name.into(),
+            routing_key: routing_key.into(),
+            bits: (mandatory, immediate).into(),
         }
     }
-}
-
-#[derive(Debug, Clone, bincode::Encode)]
-pub struct Consume {
-    frame_info: BasicFrameInfo,
-    reserved_1: u16,
-    queue_name: ShortString,
-    consumer_tag: ShortString,
-    bits: Bits,
-    arguments: Table,
-}
-
-impl Consume {
-    pub fn new(queue_name: ShortString, bits: Bits) -> Self {
-        let header = Header {
-            frame_type: FrameType::Method,
-            channel: 1,
-            size: 0,
-        };
-        let class_id = ClassID::Basic;
-        let method_id = BasicMethodID::Consume;
-        let frame_info = BasicFrameInfo {
-            header,
-            class_id,
-            method_id,
-        };
-        Self {
-            frame_info,
-            reserved_1: 0,
-            queue_name,
-            consumer_tag: ShortString("abc".into()),
-            bits,
-            arguments: Table(vec![]),
-        }
-    }
-}
-#[derive(Debug, Clone, bincode::Decode)]
-pub struct ConsumeOk {
-    frame_info: BasicFrameInfo,
-    consumer_tag: ShortString,
 }
 
 #[derive(Debug, Clone, bincode::Decode)]

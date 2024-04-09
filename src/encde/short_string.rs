@@ -1,6 +1,11 @@
 #[derive(Debug, Clone)]
 pub struct ShortString(pub String);
 
+impl From<&str> for ShortString {
+    fn from(value: &str) -> Self {
+        ShortString(value.into())
+    }
+}
 impl std::ops::Deref for ShortString {
     type Target = String;
 

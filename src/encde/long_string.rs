@@ -1,6 +1,12 @@
 #[derive(Debug, Clone)]
 pub struct LongString(pub String);
 
+impl From<&str> for LongString {
+    fn from(value: &str) -> Self {
+        LongString(value.into())
+    }
+}
+
 impl std::ops::Deref for LongString {
     type Target = String;
 

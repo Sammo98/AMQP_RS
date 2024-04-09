@@ -102,6 +102,10 @@ pub enum ExchangeMethodID {
     DeclareOk,
     Delete,
     DeleteOk,
+    Bind,
+    BindOk,
+    Unbind,
+    UnbindOk,
     // Bind?
 }
 
@@ -114,6 +118,10 @@ impl bincode::Decode for ExchangeMethodID {
             11 => Self::DeclareOk,
             20 => Self::Delete,
             21 => Self::DeleteOk,
+            30 => Self::Bind,
+            31 => Self::Bind,
+            40 => Self::Unbind,
+            41 => Self::UnbindOk,
             _ => todo!(),
         })
     }
@@ -129,6 +137,10 @@ impl bincode::Encode for ExchangeMethodID {
             Self::DeclareOk => 11_u16.encode(encoder)?,
             Self::Delete => 20_u16.encode(encoder)?,
             Self::DeleteOk => 21_u16.encode(encoder)?,
+            Self::Bind => 30_u16.encode(encoder)?,
+            Self::BindOk => 31_u16.encode(encoder)?,
+            Self::Unbind => 40_u16.encode(encoder)?,
+            Self::UnbindOk => 41_u16.encode(encoder)?,
         }
         Ok(())
     }

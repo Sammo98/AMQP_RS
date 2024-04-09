@@ -26,7 +26,7 @@ impl Consumer {
         Ok(())
     }
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let consume = basic::Consume::new(ShortString(queue.into()), Bits(vec![0, 0, 0, 0]));
+        let consume = basic::Consume::new(queue);
         let bytes = encode_frame(&consume).unwrap();
         self.connection.write(bytes).await;
 

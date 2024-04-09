@@ -1,5 +1,6 @@
 pub mod bits;
 pub mod class;
+pub mod exchange_type;
 pub mod header;
 pub mod long_string;
 pub mod method;
@@ -10,6 +11,7 @@ pub mod table;
 
 pub use bits::Bits;
 pub use class::ClassID;
+pub use exchange_type::ExchangeType;
 pub use header::{FrameType, Header};
 pub use long_string::LongString;
 pub use method::{
@@ -24,13 +26,12 @@ const CONFIG: bincode::config::Configuration<bincode::config::BigEndian, bincode
     bincode::config::standard()
         .with_big_endian()
         .with_fixed_int_encoding();
-
-// Header Length
 const HEADER_SIZE: usize = 7;
-
 const SIZE_RANGE: std::ops::Range<usize> = 3..7;
 
 pub const FRAME_END: u8 = 0xCE;
+pub const RESERVED8: u8 = 0_u8;
+pub const RESERVED16: u16 = 0_u16;
 
 pub fn encode_frame<E: bincode::enc::Encode>(
     val: E,
