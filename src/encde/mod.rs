@@ -16,6 +16,7 @@ pub use header::{FrameType, Header};
 pub use long_string::LongString;
 pub use method::{
     BasicMethodID, ChannelMethodID, ConnectionMethodID, ExchangeMethodID, QueueMethodID,
+    TransactionMethodId,
 };
 pub use properties::Properties;
 pub use raw_bytes::RawBytes;

@@ -1,3 +1,5 @@
+use bincode::Encode;
+
 #[derive(Debug, Clone)]
 pub enum ConnectionMethodID {
     Start,
@@ -216,7 +218,6 @@ pub enum BasicMethodID {
     GetEmpty,
     Ack,
     Reject,
-    RecoverAsync,
     Recover,
     RecoverOk,
 }
@@ -240,7 +241,6 @@ impl bincode::Decode for BasicMethodID {
             72 => Self::GetEmpty,
             80 => Self::Ack,
             90 => Self::Reject,
-            100 => Self::RecoverAsync,
             110 => Self::Recover,
             111 => Self::RecoverOk,
             _ => todo!(),
@@ -268,15 +268,58 @@ impl bincode::Encode for BasicMethodID {
             Self::GetEmpty => 72_u16.encode(encoder)?,
             Self::Ack => 80_u16.encode(encoder)?,
             Self::Reject => 90_u16.encode(encoder)?,
-            Self::RecoverAsync => 100_u16.encode(encoder)?,
             Self::Recover => 110_u16.encode(encoder)?,
             Self::RecoverOk => 111_u16.encode(encoder)?,
         }
         Ok(())
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum TransactionMethodId {
+    Select,
+    SelectOk,
+    Commit,
+    CommitOk,
+    Rollback,
+    RollbackOk,
+}
+impl bincode::Decode for TransactionMethodId {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        Ok(match u16::decode(decoder)? {
+            10 => Self::Select,
+            11 => Self::SelectOk,
+            20 => Self::Commit,
+            21 => Self::CommitOk,
+            30 => Self::Rollback,
+            31 => Self::RollbackOk,
+            _ => todo!(),
+        })
+    }
+}
+
+impl bincode::Encode for TransactionMethodId {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self {
+            TransactionMethodId::Select => 10_u16.encode(encoder)?,
+            TransactionMethodId::SelectOk => 11_u16.encode(encoder)?,
+            TransactionMethodId::Commit => 20_u16.encode(encoder)?,
+            TransactionMethodId::CommitOk => 21_u16.encode(encoder)?,
+            TransactionMethodId::Rollback => 30_u16.encode(encoder)?,
+            TransactionMethodId::RollbackOk => 31_u16.encode(encoder)?,
+        }
+        Ok(())
+    }
+}
+
 bincode::impl_borrow_decode!(ConnectionMethodID);
 bincode::impl_borrow_decode!(ChannelMethodID);
 bincode::impl_borrow_decode!(QueueMethodID);
 bincode::impl_borrow_decode!(BasicMethodID);
 bincode::impl_borrow_decode!(ExchangeMethodID);
+bincode::impl_borrow_decode!(TransactionMethodId);

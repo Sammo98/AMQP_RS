@@ -18,6 +18,7 @@ pub struct Declare {
 
 impl Declare {
     pub fn new(
+        channel_id: u16,
         queue: &str,
         passive: bool,
         durable: bool,
@@ -27,7 +28,7 @@ impl Declare {
     ) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         let class_id = ClassID::Queue;
@@ -70,7 +71,7 @@ impl Bind {
     pub fn new(queue: &str, exchange: &str, routing_key: &str, no_wait: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Queue;
@@ -111,7 +112,7 @@ impl Unbind {
     pub fn new(queue: &str, exchange: &str, routing_key: &str) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Queue;
@@ -148,7 +149,7 @@ impl Purge {
     pub fn new(queue: &str, no_wait: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Queue;
@@ -184,7 +185,7 @@ impl Delete {
     pub fn new(queue: &str, if_unused: bool, if_empty: bool, no_wait: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Queue;

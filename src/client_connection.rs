@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicU16;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::encde::*;
@@ -5,8 +7,14 @@ use crate::frame::*;
 use crate::tcp::TcpAdapter;
 use crate::types::*;
 
+fn get_channel_id() -> u16 {
+    static ID_COUNTER: AtomicU16 = AtomicU16::new(1);
+    ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 pub struct Connection {
     tcp_adapter: TcpAdapter,
+    pub channel_id: u16,
 }
 
 impl Connection {
@@ -45,11 +53,14 @@ impl Connection {
         // OpenOk
         let buffer = tcp_adapter.receive().await.unwrap();
         let _open_ok: connection::OpenOk = decode_frame(&buffer).unwrap();
-        Self { tcp_adapter }
+        Self {
+            tcp_adapter,
+            channel_id: get_channel_id(),
+        }
     }
 
     pub async fn create_channel(&mut self) -> Result<u16> {
-        let open = channel::Open::new();
+        let open = channel::Open::new(self.channel_id);
         let bytes = encode_frame(&open).unwrap();
         self.write(bytes).await;
 
@@ -58,16 +69,20 @@ impl Connection {
         Ok(1)
     }
     pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
-        let declare = queue::Declare::new(queue_name, false, false, false, false, false);
+        let declare = queue::Declare::new(
+            self.channel_id,
+            queue_name,
+            false,
+            false,
+            false,
+            false,
+            false,
+        );
         let bytes = encode_frame(declare).unwrap();
         self.write(bytes).await;
 
         let buffer = self.read().await.unwrap();
-        let declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
-        println!(
-            "Pre existing messages on {queue_name}: {}",
-            declare_ok.message_count
-        );
+        let _declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
         Ok(())
     }
 
@@ -76,24 +91,22 @@ impl Connection {
         exchange: &str,
         exchange_type: ExchangeType,
     ) -> Result<()> {
-        let declare = exchange::Declare::new(exchange.into(), exchange_type);
+        let declare = exchange::Declare::new(self.channel_id, exchange.into(), exchange_type);
         let bytes = encode_frame(declare)?;
-        println!("Bytes: {bytes:?}");
         self.write(bytes).await;
 
         let buffer = self.read().await.unwrap();
-        let declare_ok: exchange::DeclareOk = decode_frame(&buffer).unwrap();
+        let _declare_ok: exchange::DeclareOk = decode_frame(&buffer).unwrap();
         Ok(())
     }
 
     pub async fn delete_exchange(&mut self, exchange: &str) -> Result<()> {
-        let delete = exchange::Delete::new(exchange.into());
+        let delete = exchange::Delete::new(self.channel_id, exchange);
         let bytes = encode_frame(delete)?;
-        println!("Bytes: {bytes:?}");
         self.write(bytes).await;
 
         let buffer = self.read().await.unwrap();
-        let declare_ok: exchange::DeleteOk = decode_frame(&buffer).unwrap();
+        let _declare_ok: exchange::DeleteOk = decode_frame(&buffer).unwrap();
         Ok(())
     }
 

@@ -5,3 +5,4 @@ pub mod connection;
 pub mod content;
 pub mod exchange;
 pub mod queue;
+pub mod transaction;

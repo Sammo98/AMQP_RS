@@ -18,10 +18,10 @@ pub struct Declare {
 }
 
 impl Declare {
-    pub fn new(exchange: String, exchange_type: ExchangeType) -> Self {
+    pub fn new(channel_id: u16, exchange: String, exchange_type: ExchangeType) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         let class_id = ClassID::Exchange;
@@ -36,8 +36,8 @@ impl Declare {
             reserved_1: RESERVED16,
             exchange: ShortString(exchange),
             exchange_type,
-            passive_durable: Bits(vec![]),
-            arguments: Table(vec![]),
+            passive_durable: Bits::default(),
+            arguments: Table::default(),
         }
     }
 }
@@ -56,10 +56,10 @@ pub struct Delete {
 }
 
 impl Delete {
-    pub fn new(exchange: String) -> Self {
+    pub fn new(channel_id: u16, exchange: &str) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         let class_id = ClassID::Exchange;
@@ -72,8 +72,8 @@ impl Delete {
         Self {
             frame_info,
             reserved_1: RESERVED16,
-            exchange: ShortString(exchange),
-            ifunused_nowait: Bits(vec![]),
+            exchange: exchange.into(),
+            ifunused_nowait: Bits::default(),
         }
     }
 }
@@ -98,7 +98,7 @@ impl Bind {
     pub fn new(destination: &str, source: &str, routing_key: &str, no_wait: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Exchange;
@@ -139,7 +139,7 @@ impl Unbind {
     pub fn new(destination: &str, source: &str, routing_key: &str, no_wait: bool) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id: 1,
             size: 0,
         };
         let class_id = ClassID::Exchange;

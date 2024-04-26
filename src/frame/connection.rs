@@ -6,6 +6,8 @@ struct ConnectionFrameInfo {
     method_id: ConnectionMethodID,
 }
 
+const GLOBAL_CHANNEL: u16 = 0;
+
 #[derive(Debug, Clone, bincode::Encode)]
 pub struct ProtocolHeader {
     a: u8,
@@ -80,7 +82,7 @@ impl StartOk {
         ]);
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 0,
+            channel_id: GLOBAL_CHANNEL,
             size: 0,
         };
         // Make these enums
@@ -132,7 +134,7 @@ impl TuneOk {
     pub fn new(channel_max: u16, frame_max: u32, heartbeat: u16) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 0,
+            channel_id: GLOBAL_CHANNEL,
             size: 0,
         };
         // Make these enums
@@ -164,7 +166,7 @@ impl Open {
     pub fn new(virtual_host: &str) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 0,
+            channel_id: GLOBAL_CHANNEL,
             size: 0,
         };
         // Make these enums
@@ -208,7 +210,7 @@ impl Close {
     ) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 0,
+            channel_id: GLOBAL_CHANNEL,
             size: 0,
         };
         let class_id = ClassID::Connection;

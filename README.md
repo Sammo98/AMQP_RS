@@ -14,22 +14,30 @@ TODO:
 - [x] Abstract Connection out - This should interact with the TcpAdapter
 
 - [ ] Internal API improvements
-  - [ ] Impl default for properties with useful information.
-  - [ ] Auto generate consumer tag
-  - [ ] impl From for encde types
-  - [ ] Channel Handling - non-multiplexed for now
-  - [ ] Make all reserved constant 0_u16
+  - [x] Impl default for properties with useful information.
+  - [x] Bits? Is there a better way to handle this? (A:bool, B, ... )  -> Bits(vec![0u8, ...])?
+  - [x] impl From for encde types
+  - [x] Make all reserved constant 0_u16
+  - [x] Channel Handling - non-multiplexed for now
+  - [ ] Auto generate consumer tag - how to do without uuid
   - [ ] Table Builder
-  - [ ] Bits? Is there a better way to handle this? (A:bool, B, ... )  -> Bits(vec![0u8, ...])?
   - [ ] Error handling - impl From or thiserror 
   - [ ] Tests
   - [ ] Do this last - macro for implementing shared behaviour between pub and sub to avoid code duplication
 
-- [ ] Add all Frames
+- [x] Add all Frames
   - [x] Connection
   - [x] Channel
   - [x] Queue
   - [x] Exchange
+  - [x] Basic
+  - [x] Transaction
+
+- [ ] Test all Frames
+  - [ ] Connection
+  - [ ] Channel
+  - [ ] Queue
+  - [ ] Exchange
   - [ ] Basic
   - [ ] Transaction
 
@@ -45,24 +53,6 @@ TODO:
   - [ ] Tests
   - [ ] Documentation
   - [ ] Ensure pub/private access is correct
-
-- [ ] E2E Tests for:
-  - [ ] Channel Flow
-  - [ ] Queue Bind
-  - [ ] Queue Unbind
-  - [ ] Queue Purge
-  - [ ] Queue Delete
-  - [ ] Exchange Bind
-  - [ ] Exchange Unbind
-  - [ ] Exchange Bind
-  - [ ] Exchange Bind
-  - [ ] Exchange Bind
-  - [ ] Basic QOS
-  - [ ] Basic Cancel
-  - [ ] Basic Return 
-  - [ ] Basic Reject 
-  - [ ] Basic Recover
-  - [ ] Transactions
 
 - [ ] Try to figure out why the fuck we're not picking up messages which are already on the queue after basic.consume
 - [ ] Tests and Documentation for Public API

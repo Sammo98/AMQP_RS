@@ -10,10 +10,10 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn new(size: u64, properties: Properties) -> Self {
+    pub fn new(channel_id: u16, size: u64, properties: Properties) -> Self {
         let header = Header {
             frame_type: FrameType::Header,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         let class_id = ClassID::Basic;

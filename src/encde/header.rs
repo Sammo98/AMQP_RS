@@ -26,7 +26,7 @@ impl bincode::Encode for FrameType {
 #[derive(Debug, Clone)]
 pub struct Header {
     pub frame_type: FrameType,
-    pub channel: u16,
+    pub channel_id: u16,
     pub size: u32,
 }
 
@@ -42,7 +42,7 @@ impl bincode::Encode for Header {
             FrameType::Heartbeat => 0x08_u8.encode(encoder)?,
             FrameType::FatalError => todo!(""),
         }
-        self.channel.encode(encoder)?;
+        self.channel_id.encode(encoder)?;
         self.size.encode(encoder)?;
         Ok(())
     }
@@ -63,7 +63,7 @@ impl bincode::Decode for Header {
         let size = u32::decode(decoder)?;
         Ok(Self {
             frame_type,
-            channel,
+            channel_id: channel,
             size,
         })
     }

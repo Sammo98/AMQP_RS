@@ -1,11 +1,41 @@
 use super::*;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
+pub enum DeliveryMode {
+    Persistent,
+    NonPersistent,
+}
+impl bincode::Encode for DeliveryMode {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self {
+            DeliveryMode::NonPersistent => 1_u8.encode(encoder)?,
+            DeliveryMode::Persistent => 2_u8.encode(encoder)?,
+        }
+        Ok(())
+    }
+}
+
+impl bincode::Decode for DeliveryMode {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        Ok(match u8::decode(decoder)? {
+            1 => Self::NonPersistent,
+            2 => Self::Persistent,
+            _ => todo!(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Properties {
     content_type: Option<String>,
     content_encoding: Option<String>,
     headers: Option<Vec<(String, Field)>>,
-    delivery_mode: Option<u8>, // 1 non-persistent; 2 persistent
+    delivery_mode: Option<DeliveryMode>,
     priority: Option<u8>,
     correlation_id: Option<String>,
     reply_to: Option<String>,
@@ -16,6 +46,27 @@ pub struct Properties {
     user_id: Option<String>,
     app_id: Option<String>,
     cluster_id: Option<String>,
+}
+
+impl std::default::Default for Properties {
+    fn default() -> Self {
+        Self {
+            content_type: None,
+            content_encoding: None,
+            headers: None,
+            delivery_mode: Some(DeliveryMode::Persistent),
+            priority: None,
+            correlation_id: None,
+            reply_to: None,
+            expiration: None,
+            message_id: None,
+            timestamp: Some(get_sys_time()),
+            message_type: None,
+            user_id: None,
+            app_id: None,
+            cluster_id: None,
+        }
+    }
 }
 
 impl Properties {
@@ -43,7 +94,7 @@ pub struct PropertiesBuilder {
     content_type: Option<String>,
     content_encoding: Option<String>,
     headers: Option<Vec<(String, Field)>>,
-    delivery_mode: Option<u8>,
+    delivery_mode: Option<DeliveryMode>,
     priority: Option<u8>,
     correlation_id: Option<String>,
     reply_to: Option<String>,
@@ -69,7 +120,7 @@ impl PropertiesBuilder {
         self.headers = Some(headers);
         self
     }
-    pub fn delivery_mode(mut self, delivery_mode: u8) -> Self {
+    pub fn delivery_mode(mut self, delivery_mode: DeliveryMode) -> Self {
         self.delivery_mode = Some(delivery_mode);
         self
     }
@@ -86,7 +137,7 @@ impl PropertiesBuilder {
         self
     }
     pub fn expiration(mut self, expiration: String) -> Self {
-        self.expiration = Some(expiration); // This needs to be a string int
+        self.expiration = Some(expiration); // Int as string
         self
     }
     pub fn message_id(mut self, message_id: String) -> Self {
@@ -175,7 +226,7 @@ impl bincode::Decode for Properties {
             false => None,
         };
         let delivery_mode = match (flags & DELIVERY_MODE) != 0 {
-            true => Some(u8::decode(decoder)?),
+            true => Some(DeliveryMode::decode(decoder)?),
             false => None,
         };
         let priority = match (flags & PRIORITY) != 0 {
@@ -372,4 +423,12 @@ impl bincode::Encode for Properties {
         Ok(())
     }
 }
+
+fn get_sys_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
 bincode::impl_borrow_decode!(Properties);

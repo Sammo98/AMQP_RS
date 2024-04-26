@@ -14,10 +14,10 @@ pub struct Open {
 }
 
 impl Open {
-    pub fn new() -> Self {
+    pub fn new(channel_id: u16) -> Self {
         let header = Header {
             frame_type: FrameType::Method,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         let class_id = ClassID::Channel;

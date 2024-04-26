@@ -14,5 +14,5 @@ name = "byteflow"
 
 
 [dependencies]
-tokio = { version = "1.36", features = ["net", "rt", "macros", "full"] }
+tokio = { version = "1.37", features = ["net", "rt", "macros", "full"] }
 bincode = {version = "=2.0.0-rc.3", features = ["alloc", "derive"]}

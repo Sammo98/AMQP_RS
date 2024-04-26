@@ -1,6 +1,11 @@
 #[derive(Debug, Clone, Default)]
 pub struct Bits(pub Vec<u8>);
 
+impl From<bool> for Bits {
+    fn from(value: bool) -> Self {
+        Self(vec![value as u8])
+    }
+}
 impl From<(bool,)> for Bits {
     fn from(value: (bool,)) -> Self {
         Self(vec![value.0 as u8])

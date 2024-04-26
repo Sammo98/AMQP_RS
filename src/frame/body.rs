@@ -7,10 +7,10 @@ pub struct Body {
 }
 
 impl Body {
-    pub fn new(content: RawBytes) -> Self {
+    pub fn new(channel_id: u16, content: RawBytes) -> Self {
         let header = Header {
             frame_type: FrameType::Body,
-            channel: 1,
+            channel_id,
             size: 0,
         };
         Self { header, content }

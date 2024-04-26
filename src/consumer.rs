@@ -7,13 +7,18 @@ use crate::{client_connection::Connection, encde::*, frame::*};
 
 pub struct Consumer {
     connection: client_connection::Connection,
+    channel_id: u16,
 }
 
 impl Consumer {
     pub async fn new(address: &str) -> Self {
         let connection = Connection::connect(address).await;
+        let channel_id = connection.channel_id;
 
-        Self { connection }
+        Self {
+            connection,
+            channel_id,
+        }
     }
 
     pub async fn create_channel(&mut self) -> Result<()> {
@@ -26,7 +31,7 @@ impl Consumer {
         Ok(())
     }
     pub async fn consume_on_queue(&mut self, queue: &str, handler: Handler) -> Result<()> {
-        let consume = basic::Consume::new(queue);
+        let consume = basic::Consume::new(self.channel_id, queue);
         let bytes = encode_frame(&consume).unwrap();
         self.connection.write(bytes).await;
 
