@@ -51,7 +51,7 @@ impl Declare {
 #[derive(Debug, Clone, bincode::Decode)]
 pub struct DeclareOk {
     frame_info: QueueFrameInfo,
-    _queue_name: ShortString,
+    pub queue_name: ShortString,
     pub message_count: u32,
     _consumer_count: u32,
 }

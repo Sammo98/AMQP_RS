@@ -6,6 +6,7 @@ use crate::encde::*;
 use crate::frame::*;
 use crate::tcp::TcpAdapter;
 use crate::types::*;
+use crate::ConnectionParameters;
 
 fn get_channel_id() -> u16 {
     static ID_COUNTER: AtomicU16 = AtomicU16::new(1);
@@ -21,8 +22,12 @@ impl Connection {
     pub fn get_writer(&self) -> UnboundedSender<Vec<u8>> {
         self.tcp_adapter.clone_sender()
     }
-    pub async fn connect(address: &str) -> Self {
-        let mut tcp_adapter = TcpAdapter::new(address).await;
+    pub async fn connect(connection_parameters: ConnectionParameters<'_>) -> Self {
+        let mut tcp_adapter = TcpAdapter::new(&format!(
+            "{}:{}",
+            connection_parameters.host, connection_parameters.port
+        ))
+        .await;
 
         let protocol_header = connection::ProtocolHeader::new();
         let bytes = encode_frame_static(&protocol_header).unwrap();
@@ -33,7 +38,14 @@ impl Connection {
         let start: connection::Start = decode_frame(&buffer).unwrap();
 
         // Write StartOk
-        let start_ok_test = connection::StartOk::new("PLAIN", "\0guest\0guest", &start.locales);
+        let start_ok_test = connection::StartOk::new(
+            connection_parameters.mechanism.as_str(),
+            &format!(
+                "\0{}\0{}",
+                connection_parameters.username, connection_parameters.password
+            ),
+            &start.locales,
+        );
         let bytes = encode_frame(start_ok_test).unwrap();
         tcp_adapter.send(bytes).await;
 
@@ -47,7 +59,7 @@ impl Connection {
         tcp_adapter.send(bytes).await;
 
         // Read Open
-        let open_test = connection::Open::new("/");
+        let open_test = connection::Open::new(connection_parameters.virtual_host);
         let bytes = encode_frame(open_test).unwrap();
         tcp_adapter.send(bytes).await;
         // OpenOk
@@ -68,22 +80,28 @@ impl Connection {
         let _open_ok: channel::OpenOk = decode_frame(&buffer).unwrap();
         Ok(1)
     }
-    pub async fn create_queue(&mut self, queue_name: &str) -> Result<()> {
+    pub async fn create_queue(
+        &mut self,
+        queue_name: &str,
+        exclusive: bool,
+        auto_delete: bool,
+    ) -> Result<String> {
         let declare = queue::Declare::new(
             self.channel_id,
             queue_name,
             false,
             false,
-            false,
-            false,
+            exclusive,
+            auto_delete,
             false,
         );
         let bytes = encode_frame(declare).unwrap();
         self.write(bytes).await;
 
         let buffer = self.read().await.unwrap();
-        let _declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
-        Ok(())
+        let declare_ok: queue::DeclareOk = decode_frame(&buffer).unwrap();
+        let ShortString(queue_name) = declare_ok.queue_name;
+        Ok(queue_name)
     }
 
     pub async fn create_exchange(

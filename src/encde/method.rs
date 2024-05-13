@@ -1,5 +1,3 @@
-use bincode::Encode;
-
 #[derive(Debug, Clone)]
 pub enum ConnectionMethodID {
     Start,

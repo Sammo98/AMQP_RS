@@ -38,7 +38,7 @@ pub struct Properties {
     delivery_mode: Option<DeliveryMode>,
     priority: Option<u8>,
     correlation_id: Option<String>,
-    reply_to: Option<String>,
+    pub reply_to: Option<String>,
     expiration: Option<String>,
     message_id: Option<String>,
     timestamp: Option<u64>,
@@ -108,6 +108,24 @@ pub struct PropertiesBuilder {
 }
 
 impl PropertiesBuilder {
+    pub fn builder() -> Self {
+        Self {
+            content_type: None,
+            content_encoding: None,
+            headers: None,
+            delivery_mode: None,
+            priority: None,
+            correlation_id: None,
+            reply_to: None,
+            expiration: None,
+            message_id: None,
+            timestamp: None,
+            message_type: None,
+            user_id: None,
+            app_id: None,
+            cluster_id: None,
+        }
+    }
     pub fn content_type(mut self, content_type: String) -> Self {
         self.content_type = Some(content_type);
         self
