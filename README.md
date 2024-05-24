@@ -20,7 +20,10 @@ TODO:
   - [x] Make all reserved constant 0_u16
   - [x] Channel Handling - non-multiplexed for now
   - [x] Combine Pub and consumer into client
-  - [ ] Nicer interface for queue arguments. Put this in a struct with enums and a builder. Make queue name optional for auto gen rather than providing empty string, or provide auto gen enum
+  - [x] Nicer interface for queue arguments. Put this in a struct with enums and a builder. Make queue name optional for auto gen rather than providing empty string, or provide auto gen enum
+  - [ ] Add ExchangeDeclare Interface
+  - [ ] Add bind interface 
+  - [ ] Try get rid of mut necessity, this comes from the tcp adapter receive
   - [ ] Add property like access for bit fields and table fields
   - [ ] Auto generate consumer tag - how to do without uuid
   - [ ] Table Builder

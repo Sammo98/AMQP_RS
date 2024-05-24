@@ -1,8 +1,5 @@
 use crate::Properties;
-
 pub type Bytes = Vec<u8>;
-pub type Handler = &'static (dyn Fn(Message) -> Option<Vec<u8>> + Send + Sync);
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub struct Message {
     pub bytes: Bytes,
@@ -29,3 +26,4 @@ impl AdditionalInfo {
         Self { delivery_tag }
     }
 }
+pub type Handler = &'static (dyn Fn(Message) -> Option<Vec<u8>> + Send + Sync);

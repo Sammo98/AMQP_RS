@@ -28,16 +28,8 @@ impl Client {
         Ok(())
     }
 
-    pub async fn create_queue(
-        &mut self,
-        queue_name: &str,
-        exclusive: bool,
-        auto_delete: bool,
-    ) -> Result<String> {
-        let queue = self
-            .connection
-            .create_queue(queue_name, exclusive, auto_delete)
-            .await?;
+    pub async fn create_queue(&mut self, queue_definition: QueueDefinition) -> Result<String> {
+        let queue = self.connection.create_queue(queue_definition).await?;
         Ok(queue)
     }
 
@@ -75,7 +67,12 @@ impl Client {
 
         let response_queue = match wait_for_response {
             true => {
-                let t_queue = &self.create_queue("", true, true).await?;
+                let queue_def = QueueDefinition::builder()
+                    .queue_name("".into())
+                    .exclusive(true)
+                    .auto_delete(true)
+                    .build();
+                let t_queue = &self.create_queue(queue_def).await?;
                 let queue = t_queue.to_owned();
                 Some(queue)
             }

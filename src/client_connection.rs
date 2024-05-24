@@ -22,6 +22,7 @@ impl Connection {
     pub fn get_writer(&self) -> UnboundedSender<Vec<u8>> {
         self.tcp_adapter.clone_sender()
     }
+
     pub async fn connect(connection_parameters: ConnectionParameters<'_>) -> Self {
         let mut tcp_adapter = TcpAdapter::new(&format!(
             "{}:{}",
@@ -80,20 +81,15 @@ impl Connection {
         let _open_ok: channel::OpenOk = decode_frame(&buffer).unwrap();
         Ok(1)
     }
-    pub async fn create_queue(
-        &mut self,
-        queue_name: &str,
-        exclusive: bool,
-        auto_delete: bool,
-    ) -> Result<String> {
+    pub async fn create_queue(&mut self, queue_definition: QueueDefinition) -> Result<String> {
         let declare = queue::Declare::new(
             self.channel_id,
-            queue_name,
-            false,
-            false,
-            exclusive,
-            auto_delete,
-            false,
+            &queue_definition.queue_name,
+            queue_definition.passive,
+            queue_definition.durable,
+            queue_definition.exclusive,
+            queue_definition.auto_delete,
+            queue_definition.no_wait,
         );
         let bytes = encode_frame(declare).unwrap();
         self.write(bytes).await;
